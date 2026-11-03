@@ -314,7 +314,7 @@ function groupSingles(list){       // 同じ日・時刻・イベント名は1�
 /* ===== 右側：条件 ===== */
 function fillPlans(){
   var ps=(D&&D['作戦計画']||[]).slice().sort(function(a,b){return (num(a['並び順'])||99)-(num(b['並び順'])||99)});
-  $('#cPlan').innerHTML='<option value="">まだ選んでいない</option>'+ps.map(function(p){return '<option>'+esc(p['計画名'])+'</option>'}).join('');
+  $('#cPlan').innerHTML='<option value="">まだ選んでいない</option>'+ps.map(function(p){return '<option value="'+esc(p['計画名'])+'">'+esc(p['計画名'])+(p['説明']?'（'+esc(p['説明'])+'）':'')+'</option>'}).join('');
   $('#cPlan').value=st.plan||'';
 }
 function renderCond(){
