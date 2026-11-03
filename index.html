@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LastWar S7 データベース</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4DCC5; --surface:#F1ECDD; --surface2:#EAE3CF; --ink:#1F2A31; --muted:#56615C;
+  --line:#C6BB9C; --accent:#C97A12; --accent-ink:#1F2A31; --steel:#2E4552; --steel-ink:#F1ECDD;
+  --war:#A8402C; --grow:#46703F; --season:#6A4C93; --hl:rgba(201,122,18,.18);
+  --font-display:"Dela Gothic One","Hiragino Kaku Gothic StdN","Yu Gothic",sans-serif;
+  --font-body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#172128; --surface:#1F2C34; --surface2:#25343D; --ink:#E4DCC5; --muted:#9BA8A3;
+    --line:#33454F; --accent:#E8A23A; --accent-ink:#172128; --steel:#8DB0C2; --steel-ink:#172128;
+    --war:#E07A64; --grow:#8CC07F; --season:#B49BE0; --hl:rgba(232,162,58,.18); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#172128; --surface:#1F2C34; --surface2:#25343D; --ink:#E4DCC5; --muted:#9BA8A3;
+  --line:#33454F; --accent:#E8A23A; --accent-ink:#172128; --steel:#8DB0C2; --steel-ink:#172128;
+  --war:#E07A64; --grow:#8CC07F; --season:#B49BE0; --hl:rgba(232,162,58,.18); color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 70px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.7;overflow-x:clip}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--steel)}
+img{max-width:100%}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--steel);color:var(--steel-ink)}
+.top-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:10px 16px;padding:8px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.stamp{font-family:var(--font-display);font-size:22px;line-height:1;padding:5px 8px 4px;border:3px solid var(--accent);color:var(--accent);transform:rotate(-4deg)}
+.brand h1{font-family:var(--font-display);font-weight:400;font-size:20px;margin:0;letter-spacing:.06em}
+nav.tabs{display:flex;gap:4px}
+nav.tabs a{color:inherit;text-decoration:none;padding:4px 12px;border-radius:4px;font-weight:500;font-size:14px;opacity:.85}
+nav.tabs a[aria-current="page"]{background:var(--accent);color:var(--accent-ink);opacity:1}
+.meta{display:flex;flex-direction:column;align-items:flex-end;font-size:11px;line-height:1.4;opacity:.85}
+.theme-btn{background:none;border:1px solid currentColor;border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;opacity:.85}
+@media (max-width:600px){
+  .top-inner{padding:6px 12px}
+  .stamp{font-size:15px;padding:3px 5px 2px;border-width:2px}
+  .brand h1{font-size:15px}
+  nav.tabs a{padding:3px 9px;font-size:13px}
+  .meta{font-size:10px}
+  .theme-btn{font-size:11px;padding:1px 6px}
+}
+main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
+@media (max-width:600px){main{padding:10px 12px 40px}}
+.view{display:none}.view.active{display:block}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin-bottom:14px}
+.panel h2{font-family:var(--font-display);font-weight:400;font-size:16px;margin:0 0 6px;letter-spacing:.03em}
+.btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:4px;padding:8px 16px;font-weight:700;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.btn.small{padding:4px 11px;font-size:13px}
+.muted{color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:2px;font-size:13px;margin-bottom:8px}
+.field > span{color:var(--muted)}
+.field input,.field select{padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);min-width:0}
+.field select.unset{border-color:var(--accent);box-shadow:0 0 0 2px var(--hl)}
+.tl{border-collapse:collapse;width:100%;font-size:14px}
+.tl th,.tl td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tl th{white-space:nowrap}
+.tl tr.now > *{background:var(--hl)}
+.tbl-scroll{overflow-x:auto}
+.sr{position:absolute;left:-9999px}
+
+/* kind labels */
+.kind{display:inline-block;font-size:11px;font-weight:700;line-height:1;padding:3px 5px 2px;border-radius:3px;color:var(--bg);margin-right:6px;vertical-align:1px}
+.k-war{background:var(--war)}.k-grow{background:var(--grow)}.k-season{background:var(--season)}.k-none{background:var(--muted)}
+
+/* layout */
+.chat-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.chat{background:var(--surface);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;height:calc(100vh - 150px);min-height:540px;min-width:0}
+.log{flex:1;overflow-y:auto;padding:16px}
+.msg{margin:0 0 16px}
+.msg.user{margin-left:auto;max-width:80%;width:fit-content;background:var(--steel);color:var(--steel-ink);padding:8px 14px;border-radius:12px 12px 2px 12px}
+.msg.bot .who{font-size:12px;color:var(--muted);margin-bottom:4px}
+.bubble{border-left:3px solid var(--accent);padding:2px 0 2px 12px;max-width:720px}
+.bubble p{margin:.2em 0 .6em}
+.bubble h3{font-size:14px;margin:12px 0 4px;color:var(--muted)}
+.bubble ul{margin:.2em 0 .6em;padding-left:1.2em}
+.bubble .lead{font-weight:700;font-size:16px}
+.bubble .role{font-size:12px;color:var(--accent);font-weight:700;margin-left:4px}
+.points{background:var(--surface2);border-radius:4px;padding:8px 12px;margin-top:8px;font-size:14px}
+.points b{display:block;font-size:12px;color:var(--muted)}
+.typing{color:var(--muted);font-size:13px;margin-bottom:12px}
+.composer{display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
+.shots{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.shot{border:1px solid var(--line);border-radius:4px;background:var(--surface2);padding:0;cursor:zoom-in;max-width:100%;overflow:hidden}
+.shot img{display:block;max-height:180px;width:auto}
+.shot .ph{display:block;width:180px;height:70px;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+
+.side{position:sticky;top:76px;min-width:0}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.wklabel{font-size:13px;color:var(--muted)}
+.wkbtns{display:grid;grid-template-columns:1.4fr repeat(8,1fr);gap:3px;margin:4px 0 6px}
+.wkbtns button{padding:5px 0 4px;border:1px solid var(--line);background:var(--bg);border-radius:3px;cursor:pointer;font-weight:700;font-size:14px;line-height:1.3}
+.wkbtns button.pre{font-size:11px}
+.wkbtns button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.wkbtns small{display:block;font-size:9px;font-weight:500;line-height:1}
+.status{font-size:13px;margin:0}
+.hint{font-size:12px;color:var(--muted);margin:0 0 6px}
+.kfilter{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px}
+.kfilter button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:1px 10px;font-size:12px;cursor:pointer}
+.kfilter button[aria-pressed="true"]{background:var(--steel);color:var(--steel-ink);border-color:var(--steel)}
+.sec{font-size:13px;font-weight:700;margin:10px 0 2px;color:var(--muted)}
+.day{font-size:13px;font-weight:700;margin:8px 0 0;color:var(--muted)}
+.day.today{color:var(--accent)}
+.ev{display:flex;gap:6px;align-items:baseline;width:100%;text-align:left;background:none;border:none;border-bottom:1px dashed var(--line);padding:5px 2px;cursor:pointer;font-size:14px}
+.ev:hover{background:var(--hl)}
+.ev .tm{font-weight:700;min-width:3.1em;font-variant-numeric:tabular-nums}
+.ev .sub{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.ev .new{font-size:11px;color:var(--accent);font-weight:700;margin-left:4px}
+.empty{font-size:13px;color:var(--muted);margin:4px 0}
+
+.mbar,.sheet-close{display:none}
+.scrim[hidden]{display:none}
+@media (max-width:900px){
+  .chat-wrap{display:block}
+  .mbar{display:block;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:12px}
+  .mbar-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:700}
+  .mev{width:100%}
+  .side{display:none;position:fixed;left:0;right:0;bottom:0;top:auto;max-height:82vh;overflow-y:auto;z-index:30;background:var(--bg);border-top:3px solid var(--accent);border-radius:12px 12px 0 0;padding:10px 14px calc(16px + env(safe-area-inset-bottom,0px))}
+  .side.open-cond,.side.open-ev{display:block}
+  .side.open-cond #pEv,.side.open-ev #pCond{display:none}
+  .sheet-close{display:block;margin:0 0 8px auto}
+  .scrim{position:fixed;inset:0;background:rgba(10,15,18,.5);z-index:25}
+  .chat{height:auto;min-height:0}
+  .log{min-height:45vh;overflow:visible}
+  .composer{position:sticky;bottom:env(safe-area-inset-bottom,0px);background:var(--surface);border-radius:0 0 6px 6px;z-index:4}
+}
+
+/* zukan */
+.zgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.zcard{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:0;text-align:left;cursor:pointer;overflow:hidden;display:flex;flex-direction:column}
+.zcard .zimg{height:110px;display:flex;align-items:center;justify-content:center;background:var(--surface2);overflow:hidden}
+.zcard .zimg img{max-height:110px}
+.zcard .zt{padding:8px 10px}
+.zcard strong{display:block;font-size:14px}
+.zcard small{color:var(--muted)}
+
+dialog{border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);max-width:min(640px,94vw);padding:14px}
+dialog::backdrop{background:rgba(10,15,18,.6)}
+dialog img{display:block;max-width:100%;margin:0 auto}
+.loading{padding:40px;text-align:center;color:var(--muted)}
+.err{border-left:4px solid var(--war);padding:8px 12px;background:var(--surface);margin:10px 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="stamp" aria-hidden="true">S7</span><h1>データベース</h1></div>
+    <nav class="tabs" aria-label="画面切り替え">
+      <a href="#ask" data-view="ask">調べる</a>
+      <a href="#zukan" data-view="zukan">図鑑</a>
+    </nav>
+    <div class="meta"><span id="updated">読み込み中…</span><span>#720 カニカフの趣味によるまとめです</span></div>
+    <button class="theme-btn" id="themeBtn" type="button">表示切替</button>
+  </div>
+</header>
+
+<main>
+<section class="view" id="view-ask" aria-label="調べる">
+  <div class="chat-wrap">
+    <div class="mbar" id="mbar">
+      <div class="mbar-row"><span id="mSum"></span><button type="button" class="btn ghost small" data-sheet="cond">条件を変える</button></div>
+      <div class="wkbtns" id="mWk" role="group" aria-label="シーズンの週"></div>
+      <button type="button" class="btn small mev" data-sheet="ev" id="mEvBtn">この週のイベントを見る</button>
+    </div>
+    <div class="chat">
+      <div class="log" id="log" aria-live="polite"></div>
+      <form class="composer" id="ask">
+        <label for="q" class="sr">質問</label>
+        <input id="q" placeholder="質問を入力" autocomplete="off" enterkeyhint="send">
+        <button class="btn" type="submit">送る</button>
+      </form>
+    </div>
+    <div class="scrim" id="scrim" hidden></div>
+    <aside class="side" id="side">
+      <section class="panel" id="pCond">
+        <button type="button" class="btn ghost small sheet-close" data-close="1">閉じる</button>
+        <h2>あなたの条件</h2>
+        <div class="cgrid">
+          <label class="field"><span>サーバー番号</span><input id="cServer" type="number" inputmode="numeric" min="1" max="9999" placeholder="例：720"></label>
+          <label class="field"><span>職業</span><select id="cJob"><option value="">選んでください</option><option>エンジニア</option><option>戦争指導者</option></select></label>
+          <label class="field"><span>作戦計画システム</span><select id="cPlan"></select></label>
+          <label class="field"><span>役職</span><select id="cRole">
+            <option value="">選んでください</option><option>盟主</option><option>戦神</option><option>女神</option><option>理事</option><option>執事</option><option value="R4">R4（役職なし）</option><option value="一般">一般メンバー</option></select></label>
+        </div>
+        <div class="wklabel">シーズンの週</div>
+        <div class="wkbtns" id="wkBtns" role="group" aria-label="シーズンの週"></div>
+        <p class="status" id="status"></p>
+      </section>
+      <section class="panel" id="pEv">
+        <button type="button" class="btn ghost small sheet-close" data-close="1">閉じる</button>
+        <h2 id="evTitle">イベント</h2>
+        <p class="hint">イベントを押すと説明が出ます</p>
+        <div class="kfilter" id="kfilter" role="group" aria-label="種類で絞り込む"></div>
+        <div id="evList"><div class="empty">読み込み中…</div></div>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<section class="view" id="view-zukan" aria-label="図鑑">
+  <div class="kfilter" id="zFilter" role="group" aria-label="図鑑の分類"></div>
+  <div class="zgrid" id="zgrid"><div class="loading">読み込み中…</div></div>
+</section>
+</main>
+
+<dialog id="dlg"><div id="dlgBody"></div><div style="text-align:right;margin-top:10px"><button class="btn small" type="button" id="dlgClose">閉じる</button></div></dialog>
+
+<script>
+(function(){
+'use strict';
+/* ===== 設定 ===== */
+var API = 'https://script.google.com/macros/s/AKfycbyIHECaAgs40MMnkPq_P8II6fe4H10sT7kBKyZBdJ4aqYeh8mLb1TwGz3136Ipp4BGAmA/exec';
+var DOW = ['日','月','火','水','木','金','土'];
+var KIND = {'戦争':['戦','k-war'],'育成':['育','k-grow'],'シーズンイベント':['季','k-season']};
+var ROLE_TAGS = {'盟主':['盟主','R5','幹部'],'戦神':['戦神','R4','幹部'],'女神':['女神','R4','幹部'],'理事':['理事','R4','幹部'],'執事':['執事','R4','幹部'],'R4':['R4','R4（役職なし）','幹部'],'一般':['一般']};
+
+var $ = function(s){return document.querySelector(s)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+function num(v){var n=parseInt(String(v).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}),10);return isNaN(n)?null:n}
+function split(v){return String(v||'').split(/[,、，\s]+/).filter(Boolean)}
+
+/* ===== テーマ ===== */
+var root=document.documentElement, th=store('s7db_theme'); if(th) root.setAttribute('data-theme',th);
+$('#themeBtn').addEventListener('click',function(){
+  var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  var nx=cur==='dark'?'light':'dark'; root.setAttribute('data-theme',nx); store('s7db_theme',nx);
+});
+
+/* ===== 状態 ===== */
+var D=null;                                         // 公開データ
+var st=Object.assign({server:'',job:'',plan:'',role:'',week:null,kind:'all',zk:'all'},store('s7db_cond')||{});
+function save(){store('s7db_cond',{server:st.server,job:st.job,plan:st.plan,role:st.role})}
+
+/* ===== 日付・週 ===== */
+var TODAY=new Date(); TODAY.setHours(0,0,0,0);
+function pdate(s){var m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null}
+function md(d){return (d.getMonth()+1)+'/'+d.getDate()}
+function serverRow(){
+  var n=num(st.server); if(!D||n==null) return null;
+  var rows=D['サーバー日程']||[];
+  for(var i=0;i<rows.length;i++){var a=num(rows[i]['開始番号']),b=num(rows[i]['終了番号']);if(a!=null&&b!=null&&n>=a&&n<=b) return rows[i];}
+  return null;
+}
+function season(){
+  var r=serverRow(), open=r?pdate(r['開幕日']):null;
+  var s={open:open,row:r,phase:'unknown',day:null,week:null,until:null};
+  if(!open) return s;
+  var day=Math.floor((TODAY-open)/86400000)+1;
+  if(day<1){s.phase='pre';s.until=1-day;}
+  else if(day>56){s.phase='end';}
+  else {s.phase='in';s.day=day;s.week=Math.ceil(day/7);}
+  return s;
+}
+function dayDate(d,S){return S.open?new Date(S.open.getTime()+(d-1)*86400000):null}
+function dayLabel(d,S){var x=dayDate(d,S);return x?DOW[x.getDay()]+'曜日（'+md(x)+'）':d+'日目'}
+function weekRange(w,S){var a=dayDate((w-1)*7+1,S),b=dayDate(w*7,S);return a?md(a)+'〜'+md(b):((w-1)*7+1)+'〜'+(w*7)+'日目'}
+function curWeek(){var S=season();if(st.week!=null)return st.week;if(S.phase==='in')return S.week;if(S.phase==='end')return 8;return 1}
+
+/* ===== 条件での絞り込み ===== */
+function visible(r){
+  var j=split(r['対象職業']); if(j.length&&j.indexOf(st.job)<0) return false;
+  var p=split(r['対象作戦計画']); if(p.length&&p.indexOf(st.plan)<0) return false;
+  var ro=split(r['対象役職']); if(ro.length){var tags=ROLE_TAGS[st.role]||[];if(!ro.some(function(x){return tags.indexOf(x)>=0}))return false;}
+  return true;
+}
+function forWho(r){var a=[].concat(split(r['対象職業']),split(r['対象作戦計画']),split(r['対象役職']));return a.length?a.join('・'):''}
+function kindLabel(k){var x=KIND[k];return x?'<span class="kind '+x[1]+'">'+x[0]+'</span>':'<span class="kind k-none">他</span>'}
+function kindOk(r){return st.kind==='all'||r['種類']===st.kind}
+
+/* ===== データの取り出し ===== */
+function rows(name){return (D&&D[name]||[]).filter(visible)}
+function inWeek(r,w){var a=num(r['開始週']),b=num(r['終了週']);if(a==null)return false;if(b==null)b=a;return w>=a&&w<=b}
+function dayRowsOverlap(r,w){var a=num(r['開始日目']),b=num(r['終了日目']);if(a==null)return false;if(b==null)b=a;return a<=w*7&&b>=(w-1)*7+1}
+function weekData(w){
+  var sched=rows('予定表').filter(function(r){return dayRowsOverlap(r,w)});
+  var multi=sched.filter(function(r){return num(r['終了日目'])!=null&&num(r['終了日目'])!==num(r['開始日目'])});
+  var single=sched.filter(function(r){return multi.indexOf(r)<0});
+  return {
+    daily:rows('毎日やること').filter(function(r){return inWeek(r,w)}),
+    period:dedupe(rows('期間イベント').filter(function(r){return inWeek(r,w)}).concat(multi)),
+    single:single
+  };
+}
+function dedupe(list){var seen={};return list.filter(function(r){var n=r['イベント名'];if(seen[n])return false;seen[n]=1;return true})}
+function groupSingles(list){       // 同じ日・時刻・イベント名は1つにまとめる
+  var map={},out=[];
+  list.forEach(function(r){var k=r['開始日目']+'|'+r['時刻']+'|'+r['イベント名'];if(!map[k]){map[k]={day:num(r['開始日目']),time:r['時刻']||'',name:r['イベント名'],kind:r['種類'],rows:[]};out.push(map[k]);}map[k].rows.push(r);});
+  out.sort(function(a,b){return a.day-b.day||(a.time||'99').localeCompare(b.time||'99')});
+  return out;
+}
+
+/* ===== 右側：条件 ===== */
+function fillPlans(){
+  var ps=(D&&D['作戦計画']||[]).slice().sort(function(a,b){return (num(a['並び順'])||99)-(num(b['並び順'])||99)});
+  $('#cPlan').innerHTML='<option value="">まだ選んでいない</option>'+ps.map(function(p){return '<option>'+esc(p['計画名'])+'</option>'}).join('');
+  $('#cPlan').value=st.plan||'';
+}
+function renderCond(){
+  $('#cServer').value=st.server||''; $('#cJob').value=st.job||''; $('#cRole').value=st.role||'';
+  $('#cJob').classList.toggle('unset',!st.job); $('#cRole').classList.toggle('unset',!st.role);
+  var S=season(), w=curWeek(), sel=st.week==null?(S.phase==='in'?S.week:(S.phase==='end'?8:1)):st.week;
+  var nowKey=S.phase==='in'?String(S.week):(S.phase==='pre'?'pre':'');
+  var html=['pre','1','2','3','4','5','6','7','8'].map(function(k){
+    var on=(k==='pre'?st.week==='pre':String(sel)===k&&st.week!=='pre');
+    return '<button type="button" class="'+(k==='pre'?'pre':'')+'" data-wk="'+k+'" aria-pressed="'+on+'">'+(k==='pre'?'開幕前':k)+'<small>'+(k===nowKey?'いま':'&nbsp;')+'</small></button>'}).join('');
+  $('#wkBtns').innerHTML=html; $('#mWk').innerHTML=html;
+  var t;
+  if(!st.server) t='サーバー番号を入れると、いまの週がわかります';
+  else if(!S.row) t='#'+esc(st.server)+' の日程は登録されていません';
+  else if(S.phase==='unknown') t='#'+esc(st.server)+' は開幕日未定です';
+  else if(S.phase==='pre') t='#'+esc(st.server)+' は開幕まであと'+S.until+'日（'+md(S.open)+' 開幕）';
+  else if(S.phase==='end') t='#'+esc(st.server)+' のシーズン7は終了しています';
+  else t='#'+esc(st.server)+' はいま第'+S.week+'週・'+S.day+'日目（'+md(TODAY)+'）';
+  $('#status').innerHTML=t;
+  $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role):''].filter(Boolean).join('・');
+  $('#mEvBtn').textContent=(st.week==='pre'?'開幕前':'第'+w+'週')+'のイベントを見る';
+}
+
+/* ===== 右側：イベント欄 ===== */
+function renderKindFilter(){
+  var ks=[['all','すべて'],['戦争','戦争'],['育成','育成'],['シーズンイベント','シーズン']];
+  $('#kfilter').innerHTML=ks.map(function(k){return '<button type="button" data-kind="'+k[0]+'" aria-pressed="'+(st.kind===k[0])+'">'+k[1]+'</button>'}).join('');
+}
+function renderEvents(){
+  if(!D) return;
+  var S=season();
+  if(st.week==='pre'){
+    $('#evTitle').textContent='開幕前';
+    var r=S.row, h='';
+    if(r){h+='<div class="sec">日程</div><p class="empty" style="color:var(--ink)">'+(r['予告日']?'予告 '+esc(r['予告日'])+'　':'')+(r['開幕日']?'開幕 '+esc(r['開幕日']):'開幕日未定')+'</p>';
+      if(r['予告期間の内容']) h+='<button type="button" class="ev" data-pre="1"><span>'+esc(r['予告期間の内容'])+'</span></button>';}
+    var pre=rows('知識メモ').filter(function(k){return /開幕前|プレ|予告|準備/.test(k['対象週']+' '+k['タグ']+' '+k['項目'])});
+    if(pre.length) h+='<div class="sec">開幕までに知っておくこと</div>'+pre.map(function(k){return '<button type="button" class="ev" data-k="'+esc(k['知識ID'])+'"><span>'+esc(k['項目'])+'</span></button>'}).join('');
+    $('#evList').innerHTML=h||'<div class="empty">開幕前の情報はまだ登録されていません。</div>';
+    return;
+  }
+  var w=curWeek(), wd=weekData(w);
+  $('#evTitle').textContent='第'+w+'週のイベント（'+weekRange(w,S)+'）';
+  var h='', daily=wd.daily.filter(kindOk), period=wd.period.filter(kindOk), singles=groupSingles(wd.single.filter(kindOk));
+  if(daily.length) h+='<div class="sec">毎日やること</div>'+daily.map(function(r){return '<button type="button" class="ev" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+'<span>'+esc(r['名前'])+(num(r['開始週'])===w?'<span class="new">今週から</span>':'')+'</span></button>'}).join('');
+  if(period.length) h+='<div class="sec">今週開催中</div>'+period.map(function(r){
+    var isE=!!r['イベントID'];
+    var sub=isE?('WK'+r['開始週']+(r['終了週']&&r['終了週']!==r['開始週']?'〜'+r['終了週']:'')):(r['開始日目']+'〜'+r['終了日目']+'日目');
+    return '<button type="button" class="ev" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+'<span>'+esc(r['イベント名'])+(r['内容']&&!isE?' '+esc(r['内容']):'')+'</span><span class="sub">'+sub+'</span></button>'}).join('');
+  if(singles.length){
+    h+='<div class="sec">曜日・時刻のイベント</div>';
+    var last=null;
+    singles.forEach(function(g){
+      if(g.day!==last){var dt=dayDate(g.day,S),today=dt&&dt.getTime()===TODAY.getTime();h+='<div class="day'+(today?' today':'')+'">'+dayLabel(g.day,S)+(today?' 今日':'')+'</div>';last=g.day;}
+      h+='<button type="button" class="ev" data-day="'+g.day+'" data-time="'+esc(g.time)+'" data-name="'+esc(g.name)+'"><span class="tm">'+esc(g.time||'')+'</span>'+kindLabel(g.kind)+'<span>'+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</span></button>';
+    });
+  }
+  $('#evList').innerHTML=h||'<div class="empty">この週の予定はまだ登録されていません。</div>';
+}
+
+/* ===== 画像パーツ ===== */
+var partCache={};
+function partHtml(ids){
+  ids=ids.filter(function(x,i,a){return x&&a.indexOf(x)===i});
+  if(!ids.length) return '';
+  return '<div class="shots">'+ids.map(function(id){return '<button type="button" class="shot" data-part="'+esc(id)+'"><span class="ph">画像を読み込み中…</span></button>'}).join('')+'</div>';
+}
+function loadPart(id){
+  if(partCache[id]) return Promise.resolve(partCache[id]);
+  var c=store('s7db_p_'+id); if(c){partCache[id]=c;return Promise.resolve(c);}
+  return fetch(API+'?type=part&id='+encodeURIComponent(id)).then(function(r){return r.json()}).then(function(j){
+    if(!j.ok) throw new Error(j.error);
+    var src='data:'+j.mime+';base64,'+j.data; partCache[id]=src; store('s7db_p_'+id,src); return src;
+  });
+}
+function hydrateParts(scope){
+  scope.querySelectorAll('[data-part]').forEach(function(b){
+    if(b.dataset.done) return; b.dataset.done='1';
+    loadPart(b.dataset.part).then(function(src){b.innerHTML='<img alt="" src="'+src+'">'}).catch(function(){b.innerHTML='<span class="ph">画像を読み込めませんでした</span>'});
+  });
+}
+function partName(id){var p=(D&&D['画像パーツ']||[]).filter(function(x){return x['パーツID']===id})[0];return p?p['何を示すか']:''}
+
+/* ===== チャット ===== */
+var log=$('#log');
+function userSay(t){var d=document.createElement('div');d.className='msg user';d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function botSay(html){
+  var d=document.createElement('div');d.className='msg bot';d.innerHTML='<div class="who">S7 データベース</div><div class="bubble">'+html+'</div>';
+  log.appendChild(d); hydrateParts(d);
+  if(innerWidth<900) d.scrollIntoView({block:'start',behavior:'smooth'}); else log.scrollTop=log.scrollHeight;
+}
+function pointsFor(names){
+  var ks=rows('知識メモ').filter(function(k){var rel=split(k['関連イベント']);return rel.some(function(x){return names.some(function(n){return n&&(n.indexOf(x)>=0||x.indexOf(n)>=0)})})});
+  if(!ks.length) return {html:'',parts:[]};
+  return {html:'<div class="points"><b>ポイント</b>'+ks.map(function(k){return '・'+esc(k['要点（管理者の言葉・1〜2行）'])+(forWho(k)?'<span class="role">'+esc(forWho(k))+'</span>':'')}).join('<br>')+'</div>',parts:ks.map(function(k){return k['パーツID']})};
+}
+function doLines(list){
+  return '<ul>'+list.map(function(r){var w=forWho(r);return '<li>'+esc(r['やること（1行）']||r['内容']||'')+(w?'<span class="role">'+esc(w)+'</span>':'')+'</li>'}).join('')+'</ul>';
+}
+
+function answerEvent(name,opt){
+  opt=opt||{}; var S=season();
+  var nm=String(name);
+  var sched=rows('予定表').filter(function(r){return r['イベント名']===nm&&(opt.day==null||num(r['開始日目'])===opt.day)&&(opt.time==null||(r['時刻']||'')===opt.time)});
+  var per=rows('期間イベント').filter(function(r){return r['イベント名']===nm});
+  var dly=rows('毎日やること').filter(function(r){return r['名前']===nm});
+  if(!sched.length&&!per.length&&!dly.length) return false;
+  var h='', parts=[];
+  if(opt.day!=null){h+='<p class="lead">'+esc(nm)+'</p><p class="muted">'+dayLabel(opt.day,S)+(opt.time?' '+esc(opt.time):'')+'</p>';}
+  else{
+    var when=[];
+    per.forEach(function(r){when.push('第'+r['開始週']+(r['終了週']&&r['終了週']!==r['開始週']?'〜'+r['終了週']:'')+'週')});
+    dly.forEach(function(r){when.push('毎日（第'+r['開始週']+'〜'+(r['終了週']||8)+'週）')});
+    var days=sched.map(function(r){return num(r['開始日目'])}).filter(function(x,i,a){return a.indexOf(x)===i}).sort(function(a,b){return a-b});
+    if(days.length) when.push(days.slice(0,6).map(function(d){return dayLabel(d,S)}).join('、')+(days.length>6?' ほか':''));
+    h+='<p class="lead">'+esc(nm)+'</p>'+(when.length?'<p class="muted">'+when.join(' ／ ')+'</p>':'');
+  }
+  var lines=[].concat(per,dly,sched).filter(function(r){return r['やること（1行）']||r['内容']});
+  var seen={}; lines=lines.filter(function(r){var k=(r['やること（1行）']||r['内容'])+'|'+forWho(r);if(seen[k])return false;seen[k]=1;return true});
+  if(lines.length) h+=doLines(lines);
+  [].concat(per,dly,sched).forEach(function(r){parts.push(r['パーツID'])});
+  var pt=pointsFor([nm]); parts=parts.concat(pt.parts);
+  h+=partHtml(parts)+pt.html;
+  botSay(h); return true;
+}
+function answerDaily(id){
+  var r=rows('毎日やること').filter(function(x){return x['毎日ID']===id})[0]; if(!r) return;
+  var pt=pointsFor([r['名前']]);
+  botSay('<p class="lead">'+esc(r['名前'])+'</p><p class="muted">毎日'+(r['時刻']?'（'+esc(r['時刻'])+'）':'')+'・第'+r['開始週']+'〜'+(r['終了週']||8)+'週</p>'+doLines([r])+partHtml([r['パーツID']].concat(pt.parts))+pt.html);
+}
+function answerKnowledge(list){
+  botSay(list.slice(0,4).map(function(k){return '<p class="lead">'+esc(k['項目'])+'</p><p>'+esc(k['要点（管理者の言葉・1〜2行）'])+(forWho(k)?'<span class="role">'+esc(forWho(k))+'</span>':'')+'</p>'}).join('')+partHtml(list.slice(0,4).map(function(k){return k['パーツID']})));
+}
+function answerWeek(w){
+  var S=season(), wd=weekData(w), singles=groupSingles(wd.single);
+  var h='<p class="lead">第'+w+'週（'+weekRange(w,S)+'）</p>';
+  if(wd.daily.length) h+='<h3>毎日やること</h3><ul>'+wd.daily.map(function(r){return '<li>'+kindLabel(r['種類'])+esc(r['名前'])+'</li>'}).join('')+'</ul>';
+  if(wd.period.length) h+='<h3>開催中</h3><ul>'+wd.period.map(function(r){return '<li>'+kindLabel(r['種類'])+esc(r['イベント名'])+'</li>'}).join('')+'</ul>';
+  if(singles.length) h+='<h3>曜日・時刻</h3><ul>'+singles.map(function(g){return '<li>'+dayLabel(g.day,S)+' '+esc(g.time)+' '+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</li>'}).join('')+'</ul>';
+  if(!wd.daily.length&&!wd.period.length&&!singles.length) h+='<p>この週の予定はまだ登録されていません。</p>';
+  botSay(h);
+}
+function answerDay(d,slot){
+  var S=season(), w=Math.ceil(d/7), list=groupSingles(rows('予定表').filter(function(r){return num(r['開始日目'])===d&&num(r['終了日目']||r['開始日目'])===d}));
+  if(slot){list=list.filter(function(g){if(!g.time)return true;var hh=num(g.time.split(':')[0]);return slot==='朝'?hh>=5&&hh<12:slot==='昼'?hh>=12&&hh<18:slot==='夜'?hh>=18:slot==='深夜'?hh<5:true})}
+  var daily=rows('毎日やること').filter(function(r){return inWeek(r,w)});
+  var h='<p class="lead">'+dayLabel(d,S)+(slot?'の'+slot:'')+'</p>';
+  h+=list.length?'<ul>'+list.map(function(g){return '<li>'+esc(g.time||'')+' '+kindLabel(g.kind)+esc(g.name)+'</li>'}).join('')+'</ul>':'<p>この時間の決まったイベントはありません。</p>';
+  if(daily.length) h+='<h3>毎日やること</h3><ul>'+daily.map(function(r){return '<li>'+esc(r['名前'])+'</li>'}).join('')+'</ul>';
+  botSay(h);
+}
+function answerOverview(){
+  var S=season(), h='<p class="lead">シーズン7の流れ</p><div class="tbl-scroll"><table class="tl"><tbody>';
+  for(var w=1;w<=8;w++){
+    var wd=weekData(w), names=[];
+    wd.period.forEach(function(r){var n=r['イベント名'];if(names.indexOf(n)<0&&num(r['開始週'])===w)names.push(n)});
+    groupSingles(wd.single).forEach(function(g){if(names.indexOf(g.name)<0)names.push(g.name)});
+    h+='<tr'+(S.phase==='in'&&S.week===w?' class="now"':'')+'><th>第'+w+'週</th><td>'+(names.slice(0,5).map(esc).join('、')||'—')+(names.length>5?' ほか':'')+'</td></tr>';
+  }
+  botSay(h+'</tbody></table></div><p class="muted">週ボタンを押すと、その週の詳しい予定が出ます。</p>');
+}
+function answerSchedule(){
+  var S=season(), r=S.row;
+  if(!st.server){botSay('<p>右の「サーバー番号」を入れると、そのサーバーの日程を表示します。</p>');return}
+  if(!r){botSay('<p>#'+esc(st.server)+' の日程はまだ登録されていません。</p>');return}
+  botSay('<p class="lead">#'+esc(st.server)+' の日程</p><ul>'+(r['予告日']?'<li>予告：'+esc(r['予告日'])+(r['予告期間の内容']?'（'+esc(r['予告期間の内容'])+'）':'')+'</li>':'')+'<li>開幕：'+(r['開幕日']?esc(r['開幕日']):'未定')+'</li></ul>');
+}
+function notFound(q){
+  botSay('<p>この質問に答えられる情報はまだ登録されていません。管理者に知らせました。</p>');
+  var S=season();
+  fetch(API+'?type=request&q='+encodeURIComponent(q)+'&week='+encodeURIComponent(st.week==='pre'?'開幕前':curWeek())+'&server='+encodeURIComponent(st.server||'')).catch(function(){});
+}
+
+/* 質問の判断（AIなしの言葉判断） */
+function handle(q){
+  var t=q.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
+  var S=season();
+  var mw=t.match(/(?:第|WK|wk|Wk)?([1-8])週/)||t.match(/(?:WK|wk|Wk)([1-8])/);
+  if(/流れ|全体|スケジュール一覧|シーズンの予定/.test(t)){answerOverview();return}
+  if(/開幕|いつから|日程|予告/.test(t)&&!mw){answerSchedule();return}
+  if(mw){answerWeek(+mw[1]);return}
+  if(/今週/.test(t)){answerWeek(curWeek());return}
+  var slot=/深夜/.test(t)?'深夜':/朝/.test(t)?'朝':/昼/.test(t)?'昼':/夜/.test(t)?'夜':'';
+  var md_=t.match(/([日月火水木金土])曜/), today=/今日/.test(t), tomorrow=/明日/.test(t);
+  if((md_||today||tomorrow)&&S.open){
+    var base=S.phase==='in'?S.day:((curWeek()-1)*7+1), d;
+    if(today) d=S.phase==='in'?S.day:base; else if(tomorrow) d=(S.phase==='in'?S.day:base)+1;
+    else{var target=DOW.indexOf(md_[1]),ws=(curWeek()-1)*7+1;for(var i=0;i<7;i++){var x=dayDate(ws+i,S);if(x.getDay()===target){d=ws+i;break}}}
+    if(d&&d>=1&&d<=56){answerDay(d,slot);return}
+  }
+  if(md_&&!S.open){botSay('<p>開幕日が決まっていないため、曜日では探せません。「◯週目」で聞いてみてください。</p>');return}
+  if(/毎日|デイリー/.test(t)){var w=curWeek(),list=rows('毎日やること').filter(function(r){return inWeek(r,w)});
+    if(list.length){botSay('<p class="lead">第'+w+'週の毎日やること</p>'+doLines(list)+partHtml(list.map(function(r){return r['パーツID']})));return}}
+  // イベント名
+  var names=[];
+  [['予定表','イベント名'],['期間イベント','イベント名'],['毎日やること','名前']].forEach(function(p){rows(p[0]).forEach(function(r){var n=r[p[1]];if(n&&names.indexOf(n)<0)names.push(n)})});
+  var hit=names.filter(function(n){var b=n.replace(/S7$/,'');return t.indexOf(b)>=0||(t.length>=2&&b.indexOf(t)>=0)});
+  if(hit.length){hit.sort(function(a,b){return b.length-a.length});answerEvent(hit[0]);return}
+  // 知識メモ
+  var ks=rows('知識メモ').filter(function(k){
+    var keys=[k['項目']].concat(split(k['タグ'])).filter(function(x){return x&&x.length>=2});
+    return keys.some(function(x){return t.indexOf(x)>=0||(t.length>=2&&x.indexOf(t)>=0)});
+  });
+  if(ks.length){answerKnowledge(ks);return}
+  // 図鑑・画像パーツ
+  var ps=(D['画像パーツ']||[]).filter(function(p){var n=p['何を示すか']||'';return t.length>=2&&(n.indexOf(t)>=0||t.indexOf(n.replace(/（.*?）/g,''))>=0)});
+  if(ps.length){botSay('<p class="lead">関連する画像</p>'+partHtml(ps.slice(0,4).map(function(p){return p['パーツID']})));return}
+  notFound(q);
+}
+
+$('#ask').addEventListener('submit',function(e){
+  e.preventDefault(); var q=$('#q').value.trim(); if(!q) return; $('#q').value='';
+  userSay(q);
+  if(!D){botSay('<p>データを読み込み中です。少し待ってからもう一度送ってください。</p>');return}
+  handle(q);
+});
+log.addEventListener('click',function(e){var b=e.target.closest('[data-part]');if(b&&b.querySelector('img'))openImg(b.dataset.part)});
+
+/* ===== 右側の操作 ===== */
+function openSheet(k){var sd=$('#side');sd.classList.remove('open-cond','open-ev');if(k)sd.classList.add('open-'+k);$('#scrim').hidden=!k}
+$('#scrim').addEventListener('click',function(){openSheet(null)});
+function sideClick(e){
+  var sh=e.target.closest('[data-sheet]'); if(sh){openSheet(sh.dataset.sheet);return}
+  if(e.target.closest('[data-close]')){openSheet(null);return}
+  var wk=e.target.closest('[data-wk]'); if(wk){st.week=wk.dataset.wk==='pre'?'pre':+wk.dataset.wk;renderCond();renderEvents();return}
+  var kd=e.target.closest('[data-kind]'); if(kd){st.kind=kd.dataset.kind;renderKindFilter();renderEvents();return}
+  var ev=e.target.closest('.ev'); if(!ev) return;
+  openSheet(null);
+  if(ev.dataset.m){var r=(D['毎日やること']||[]).filter(function(x){return x['毎日ID']===ev.dataset.m})[0];userSay((r?r['名前']:'')+'は、なにをする？');answerDaily(ev.dataset.m);return}
+  if(ev.dataset.k){var k=(D['知識メモ']||[]).filter(function(x){return x['知識ID']===ev.dataset.k});userSay((k[0]?k[0]['項目']:'')+'について');answerKnowledge(k);return}
+  if(ev.dataset.pre){userSay('開幕前の予定は？');answerSchedule();return}
+  var name=ev.dataset.name;
+  if(ev.dataset.day){var d=+ev.dataset.day,S=season();userSay(dayLabel(d,S).replace(/（.*）/,'')+(ev.dataset.time?' '+ev.dataset.time:'')+' の'+name+'は、なにをする？');answerEvent(name,{day:d,time:ev.dataset.time||''});return}
+  userSay(name+'は、なにをする？'); if(!answerEvent(name)) botSay('<p>詳しい情報はまだ登録されていません。</p>');
+}
+$('#side').addEventListener('click',sideClick); $('#mbar').addEventListener('click',sideClick);
+$('#cServer').addEventListener('change',function(){st.server=String(num(this.value)||'');st.week=null;save();renderCond();renderEvents()});
+$('#cJob').addEventListener('change',function(){st.job=this.value;save();renderCond();renderEvents();renderZukan()});
+$('#cPlan').addEventListener('change',function(){st.plan=this.value;save();renderCond();renderEvents();renderZukan()});
+$('#cRole').addEventListener('change',function(){st.role=this.value;save();renderCond();renderEvents();renderZukan()});
+
+/* ===== 図鑑 ===== */
+function zukanItems(){
+  var a=[];
+  rows('期間イベント').forEach(function(r){if(r['図鑑の分類']&&r['パーツID'])a.push({cat:r['図鑑の分類'],name:r['イベント名'],text:r['やること（1行）'],part:r['パーツID'],key:r['イベント名']})});
+  rows('知識メモ').forEach(function(r){if(r['図鑑の分類']&&r['パーツID'])a.push({cat:r['図鑑の分類'],name:r['項目'],text:r['要点（管理者の言葉・1〜2行）'],part:r['パーツID'],key:r['項目']})});
+  var seen={};return a.filter(function(x){var k=x.cat+x.name;if(seen[k])return false;seen[k]=1;return true});
+}
+function renderZukan(){
+  if(!D) return;
+  var items=zukanItems(), cats=[];
+  items.forEach(function(x){if(cats.indexOf(x.cat)<0)cats.push(x.cat)});
+  if(st.zk!=='all'&&cats.indexOf(st.zk)<0) st.zk='all';
+  $('#zFilter').innerHTML=['all'].concat(cats).map(function(c){return '<button type="button" data-zk="'+esc(c)+'" aria-pressed="'+(st.zk===c)+'">'+(c==='all'?'すべて':esc(c))+'</button>'}).join('');
+  var list=items.filter(function(x){return st.zk==='all'||x.cat===st.zk});
+  $('#zgrid').innerHTML=list.length?list.map(function(x,i){return '<button type="button" class="zcard" data-zi="'+items.indexOf(x)+'"><span class="zimg" data-part="'+esc(x.part)+'"><span class="ph">…</span></span><span class="zt"><strong>'+esc(x.name)+'</strong><small>'+esc(x.cat)+'</small></span></button>'}).join(''):'<div class="loading">図鑑はまだ登録がありません。</div>';
+  zukanItems._cache=items;
+  if($('#view-zukan').classList.contains('active')) hydrateParts($('#zgrid'));
+}
+$('#zFilter').addEventListener('click',function(e){var b=e.target.closest('[data-zk]');if(!b)return;st.zk=b.dataset.zk;renderZukan()});
+$('#zgrid').addEventListener('click',function(e){
+  var c=e.target.closest('[data-zi]'); if(!c) return; var x=zukanItems._cache[+c.dataset.zi]; if(!x) return;
+  var pt=pointsFor([x.key]);
+  $('#dlgBody').innerHTML='<div data-part="'+esc(x.part)+'"><span class="ph">画像を読み込み中…</span></div><h3 style="margin:10px 0 2px">'+esc(x.name)+'</h3><p class="muted" style="margin:0 0 6px;font-size:13px">'+esc(x.cat)+'</p><p style="margin:0">'+esc(x.text||'')+'</p>'+pt.html;
+  hydrateParts($('#dlgBody')); $('#dlg').showModal();
+});
+function openImg(id){$('#dlgBody').innerHTML='<div data-part="'+esc(id)+'"></div><p class="muted" style="margin:8px 0 0;font-size:13px">'+esc(partName(id))+'</p>';hydrateParts($('#dlgBody'));$('#dlg').showModal()}
+$('#dlgClose').addEventListener('click',function(){$('#dlg').close()});
+$('#dlg').addEventListener('click',function(e){if(e.target===this)this.close()});
+
+/* ===== 画面切り替え ===== */
+function route(){
+  var h=location.hash.replace('#','');if(h!=='zukan')h='ask';
+  ['ask','zukan'].forEach(function(v){$('#view-'+v).classList.toggle('active',v===h)});
+  document.querySelectorAll('nav.tabs a').forEach(function(a){if(a.dataset.view===h)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(h==='zukan') hydrateParts($('#zgrid'));
+}
+window.addEventListener('hashchange',route);
+
+/* ===== 読み込み ===== */
+function applyData(d){
+  D=d; $('#updated').textContent='情報更新 '+(d.updated||'');
+  fillPlans(); renderCond(); renderKindFilter(); renderEvents(); renderZukan();
+}
+function load(){
+  var cached=store('s7db_data'); if(cached) applyData(cached);
+  fetch(API+'?type=data').then(function(r){return r.json()}).then(function(d){
+    if(!d.ok) throw new Error(d.error||'error');
+    store('s7db_data',d); applyData(d);
+  }).catch(function(){
+    if(!D){$('#evList').innerHTML='<div class="err">データを読み込めませんでした。時間をおいて開き直してください。</div>';$('#updated').textContent='読み込み失敗';}
+  });
+}
+botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「3週目は何がある？」「水曜の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
+if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
+renderCond(); renderKindFilter(); route(); load();
+})();
+</script>
+</body>
+</html>
