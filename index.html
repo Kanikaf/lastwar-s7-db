@@ -69,7 +69,7 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .muted{color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:2px;font-size:13px;margin-bottom:8px}
 .field > span{color:var(--muted)}
-.field input,.field select{padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);min-width:0}
+.field input,.field select{padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);min-width:0;width:100%;box-sizing:border-box}
 .field select.unset{border-color:var(--accent);box-shadow:0 0 0 2px var(--hl)}
 .tl{border-collapse:collapse;width:100%;font-size:14px}
 .tl th,.tl td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -107,7 +107,8 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .shot .ph{display:block;width:180px;height:70px;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center}
 
 .side{position:sticky;top:76px;min-width:0}
-.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.cgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+.cgrid .field{min-width:0}
 .wklabel{font-size:13px;color:var(--muted)}
 .wkbtns{display:grid;grid-template-columns:1.4fr repeat(8,1fr);gap:3px;margin:4px 0 6px}
 .wkbtns button{padding:5px 0 4px;border:1px solid var(--line);background:var(--bg);border-radius:3px;cursor:pointer;font-weight:700;font-size:14px;line-height:1.3}
@@ -199,9 +200,10 @@ dialog img{display:block;max-width:100%;margin:0 auto}
         <div class="cgrid">
           <label class="field"><span>サーバー番号</span><input id="cServer" type="number" inputmode="numeric" min="1" max="9999" placeholder="例：720"></label>
           <label class="field"><span>職業</span><select id="cJob"><option value="">選んでください</option><option>エンジニア</option><option>戦争指導者</option></select></label>
-          <label class="field"><span>作戦計画システム</span><select id="cPlan"></select></label>
+          
           <label class="field"><span>役職</span><select id="cRole">
             <option value="">選んでください</option><option>盟主</option><option>戦神</option><option>女神</option><option>理事</option><option>執事</option><option value="R4">R4（役職なし）</option><option value="一般">一般メンバー</option></select></label>
+          <label class="field" style="grid-column:1/-1"><span>作戦計画システム</span><select id="cPlan"></select></label>
         </div>
         <div class="wklabel">シーズンの週</div>
         <div class="wkbtns" id="wkBtns" role="group" aria-label="シーズンの週"></div>
@@ -461,15 +463,16 @@ function answerDay(d,slot){
   var S=season(), w=Math.ceil(d/7);
   var all=rows('予定表').filter(function(r){var a=num(r['開始日目']),b=num(r['終了日目']);if(a==null)return false;if(b==null)b=a;return a<=d&&b>=d});
   var single=groupSingles(all.filter(function(r){return num(r['終了日目']||r['開始日目'])===num(r['開始日目'])}));
-  var multi=dedupe(all.filter(function(r){return num(r['終了日目']||r['開始日目'])!==num(r['開始日目'])}).concat(rows('期間イベント').filter(function(r){return inWeek(r,w)})));
+  var multi=all.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return e!==a&&(a===d||e===d)});
   if(slot){single=single.filter(function(g){if(!g.time)return true;var hh=num(g.time.split(':')[0]);return slot==='朝'?hh>=5&&hh<12:slot==='昼'?hh>=12&&hh<18:slot==='夜'?hh>=18:slot==='深夜'?hh<5:true})}
   var daily=rows('毎日やること').filter(function(r){return inWeek(r,w)});
   var dt=dayDate(d,S), today=dt&&dt.getTime()===TODAY.getTime();
   var h='<p class="lead">'+dayLabel(d,S)+(S.open?'・'+d+'日目':'')+(today?'（今日）':'')+(slot?'の'+slot:'')+'</p><p class="muted">第'+w+'週</p>';
-  h+='<h3>この日のイベント</h3>'+(single.length?'<ul>'+single.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+(g.time?esc(g.time)+' ':'')+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>':'<p>この日だけのイベントはありません。</p>');
-  if(multi.length) h+='<h3>開催中</h3><ul>'+multi.map(function(r){return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+'</button></li>'}).join('')+'</ul>';
+  h+='<h3>この日のイベント</h3>'+(single.length?'<ul>'+single.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+(g.time?esc(g.time)+' ':'')+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>':'<p>この日だけの予定は登録されていません。</p>');
+  if(multi.length) h+='<h3>この日に始まる・終わるもの</h3><ul>'+multi.map(function(r){var st_=num(r['開始日目'])===d;return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+(st_?'開始（〜'+r['終了日目']+'日目）':'最終日')+'</span></li>'}).join('')+'</ul>';
   if(daily.length) h+='<h3>毎日やること</h3><ul>'+daily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>';
   if(single.length||multi.length) h+='<p class="muted" style="font-size:13px">イベント名を押すと、やることが出ます。</p>';
+  h+='<p><button type="button" class="link" data-week="'+w+'">第'+w+'週に開催中のイベントを見る</button></p>';
   botSay(h);
 }
 function answerOverview(){
@@ -498,6 +501,9 @@ function slotOf(t){return /深夜/.test(t)?'深夜':/朝/.test(t)?'朝':/昼/.te
 /* 質問の判断（AIなしの言葉判断） */
 function handle(q){
   var t=q.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
+  // 言い換え（最初から入っているもの＋スプシの「言い換え」シート）
+  var alias=[['初日','1日目'],['開幕日','1日目'],['最終日','56日目'],['最終週','8週'],['デイリー','毎日']].concat((D['言い換え']||[]).map(function(r){return [r['言葉'],r['置き換え']]}));
+  alias.forEach(function(a){if(a[0]&&a[1]&&t.indexOf(a[0])>=0)t=t.split(a[0]).join(a[1])});
   var S=season();
   var mw=t.match(/(?:第|WK|wk|Wk)?([1-8])週/)||t.match(/(?:WK|wk|Wk)([1-8])/);
   var mdN=t.match(/(\d{1,2})日目/);
@@ -549,6 +555,7 @@ log.addEventListener('click',function(e){
   var b=e.target.closest('[data-part]');if(b&&b.querySelector('img')){openImg(b.dataset.part);return}
   var l=e.target.closest('.link');if(!l)return;
   if(l.dataset.m){answerDaily(l.dataset.m);return}
+  if(l.dataset.week){answerWeek(+l.dataset.week);return}
   var nm=l.dataset.name;
   if(l.dataset.day){if(!answerEvent(nm,{day:+l.dataset.day,time:l.dataset.time||''}))botSay('<p>詳しい情報はまだ登録されていません。</p>');}
   else if(!answerEvent(nm)) botSay('<p>詳しい情報はまだ登録されていません。</p>');
