@@ -100,6 +100,9 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .tt tr.past td,.tt tr.past th{opacity:.45}
 .tt tr.next th{color:var(--accent)}
 .nexttag{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:3px;padding:1px 5px}
+.tfb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:13px}
+.tfb-in{flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
+.testbadge{background:var(--war);color:var(--bg);font-size:11px;font-weight:700;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:3px}
 .link{background:none;border:none;padding:1px 0;text-align:left;cursor:pointer;color:inherit;font:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .bubble .lead{font-weight:700;font-size:16px}
 .bubble .role{font-size:12px;color:var(--accent);font-weight:700;margin-left:4px}
@@ -173,7 +176,7 @@ dialog img{display:block;max-width:100%;margin:0 auto}
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="brand"><span class="stamp" aria-hidden="true">S7</span><h1>データベース</h1></div>
+    <div class="brand"><span class="stamp" aria-hidden="true">S7</span><h1>データベース</h1><span class="testbadge" id="testBadge" hidden>テスト版</span></div>
     <nav class="tabs" aria-label="画面切り替え">
       <a href="#ask" data-view="ask">調べる</a>
       <a href="#zukan" data-view="zukan">図鑑</a>
@@ -251,6 +254,12 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function num(v){var n=parseInt(String(v).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}),10);return isNaN(n)?null:n}
 function split(v){return String(v||'').split(/[,、，\s]+/).filter(Boolean)}
+
+/* ===== テスト版（?test=1 で有効、?test=0 で解除。スマホに記憶） ===== */
+var TEST=(function(){var m=location.search.match(/[?&]test=([01])/);if(m){store('s7db_test',m[1]==='1');}return !!store('s7db_test')})();
+var CUR=null, ansType='';
+function newLogId(){return 'L'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
+function sendLog(params){if(!TEST)return;var qs=Object.keys(params).map(function(k){return k+'='+encodeURIComponent(params[k])}).join('&');fetch(API+'?type=log&'+qs).catch(function(){})}
 
 /* ===== テーマ ===== */
 var root=document.documentElement, th=store('s7db_theme'); if(th) root.setAttribute('data-theme',th);
@@ -435,7 +444,14 @@ function partName(id){var p=(D&&D['画像パーツ']||[]).filter(function(x){ret
 var log=$('#log');
 function userSay(t){var d=document.createElement('div');d.className='msg user';d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
 function botSay(html){
-  var d=document.createElement('div');d.className='msg bot';d.innerHTML='<div class="who">S7 データベース</div><div class="bubble">'+html+'</div>';
+  var fb='';
+  if(TEST&&CUR&&!CUR.sent){
+    CUR.sent=true;
+    var tmp=document.createElement('div');tmp.innerHTML=html;
+    sendLog({id:CUR.id,q:CUR.q,kind:ansType||'その他',sum:tmp.textContent.replace(/\s+/g,' ').slice(0,110),server:st.server||'',week:st.week==='pre'?'開幕前':curWeek()});
+    fb='<div class="tfb" data-log="'+CUR.id+'"><span class="muted">テスト：</span><button type="button" class="btn ghost small" data-eval="○">ほしい情報だった</button><button type="button" class="btn ghost small" data-eval="×">違った・足りない</button></div>';
+  }
+  var d=document.createElement('div');d.className='msg bot';d.innerHTML='<div class="who">S7 データベース</div><div class="bubble">'+html+fb+'</div>';
   log.appendChild(d); hydrateParts(d);
   if(innerWidth<900) d.scrollIntoView({block:'start',behavior:'smooth'}); else log.scrollTop=log.scrollHeight;
 }
@@ -531,6 +547,27 @@ function answerOverview(){
   }
   botSay(h+'</tbody></table></div><p class="muted">週ボタンを押すと、その週の詳しい予定が出ます。</p>');
 }
+function answerAllDays(fromW,toW){
+  var S=season(); fromW=fromW||1; toW=toW||8;
+  var sched=rows('予定表');
+  var h='<p class="lead">シーズン中のイベント（日ごと）</p>';
+  for(var w=fromW;w<=toW;w++){
+    var lines=[];
+    for(var d=(w-1)*7+1;d<=w*7;d++){
+      var dd=dayDate(d,S);
+      var singles=groupSingles(sched.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return a===d&&e===a}));
+      var starts=sched.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return a===d&&e!==a});
+      if(!singles.length&&!starts.length) continue;
+      var label='Day'+d+(dd?'（'+dow(dd)+' '+md(dd)+'）':'');
+      var items=singles.map(function(g){return '<button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+(g.time?localTime(dd,g.time)+' ':'')+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button>'})
+        .concat(starts.map(function(r){return '<button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">開始（〜Day'+r['終了日目']+'）</span>'}));
+      lines.push('<li><b>'+label+'</b><br>'+items.join('<br>')+'</li>');
+    }
+    if(lines.length) h+='<h3>第'+w+'週'+(S.open?'（'+weekRange(w,S)+'）':'')+'</h3><ul>'+lines.join('')+'</ul>';
+  }
+  h+='<p class="muted" style="font-size:12px">週をまたいで続くイベント（殲滅作戦など）は、週ボタンか「◯週目」で確認できます。時刻はこの端末の時間です。</p>';
+  botSay(h);
+}
 function answerSchedule(){
   var S=season(), r=S.row;
   if(!st.server){botSay('<p>右の「サーバー番号」を入れると、そのサーバーの日程を表示します。</p>');return}
@@ -555,6 +592,7 @@ function handle(q){
   var mdN=t.match(/(\d{1,2})日目/);
   if(/流れ|全体|スケジュール一覧|シーズンの予定/.test(t)){answerOverview();return}
   if(mdN){var dn=+mdN[1];if(dn>=1&&dn<=56){answerDay(dn,slotOf(t));return}}
+  if(/イベント|予定/.test(t)&&/日程|日ごと|日別|順|並べ|一覧|全部|すべて|カレンダー|Day/i.test(t)){answerAllDays(mw?+mw[1]:1,mw?+mw[1]:8);return}
   if(/開幕|いつから|日程|予告/.test(t)&&!mw){answerSchedule();return}
   var slot=slotOf(t);
   var md_=t.match(/([日月火水木金土])曜/), today=/今日/.test(t), tomorrow=/明日/.test(t);
@@ -591,14 +629,28 @@ function handle(q){
   notFound(q);
 }
 
+[['answerWeek','週'],['answerDay','日'],['answerEvent','イベント'],['answerKnowledge','知識'],['answerOverview','流れ'],['answerSchedule','開幕日'],['answerAllDays','日ごと一覧'],['answerDaily','毎日'],['notFound','見つからない']].forEach(function(x){
+  var f=eval(x[0]); var w=function(){ansType=x[1];return f.apply(this,arguments)};
+  eval(x[0]+'=w');
+});
 $('#ask').addEventListener('submit',function(e){
   e.preventDefault(); var q=$('#q').value.trim(); if(!q) return; $('#q').value='';
   userSay(q);
   if(!D){botSay('<p>データを読み込み中です。少し待ってからもう一度送ってください。</p>');return}
+  CUR={id:newLogId(),q:q}; ansType='';
   handle(q);
+  if(CUR&&!CUR.sent&&TEST){botSay('<p class="muted">（答えを作れませんでした）</p>')}
+  CUR=null;
 });
 log.addEventListener('click',function(e){
   var b=e.target.closest('[data-part]');if(b&&b.querySelector('img')){openImg(b.dataset.part);return}
+  var ev=e.target.closest('[data-eval]');
+  if(ev){var box=ev.closest('.tfb'),id=box.dataset.log;
+    if(ev.dataset.eval==='○'){sendLog({id:id,eval:'○'});box.innerHTML='<span class="muted">ありがとうございます（記録しました）</span>';}
+    else{box.innerHTML='<span class="muted">何が知りたかったですか？（任意）</span><input type="text" class="tfb-in" maxlength="150"><button type="button" class="btn small" data-evsend="1">送る</button>';box.querySelector('input').focus();}
+    return}
+  var es=e.target.closest('[data-evsend]');
+  if(es){var box2=es.closest('.tfb');sendLog({id:box2.dataset.log,eval:'×',comment:box2.querySelector('input').value||''});box2.innerHTML='<span class="muted">ありがとうございます（記録しました）</span>';return}
   var l=e.target.closest('.link');if(!l)return;
   if(l.dataset.m){answerDaily(l.dataset.m);return}
   if(l.dataset.week){answerWeek(+l.dataset.week);return}
@@ -682,6 +734,7 @@ function load(){
     if(!D){$('#evList').innerHTML='<div class="err">データを読み込めませんでした。時間をおいて開き直してください。</div>';$('#updated').textContent='読み込み失敗';}
   });
 }
+if(TEST){$('#testBadge').hidden=false;}
 botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
 if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
 renderCond(); renderKindFilter(); route(); load();
