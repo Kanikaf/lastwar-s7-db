@@ -194,6 +194,7 @@ dialog img{display:block;max-width:100%;margin:0 auto}
     <div class="mbar" id="mbar">
       <div class="mbar-row"><span id="mSum"></span><button type="button" class="btn ghost small" data-sheet="cond">条件を変える</button></div>
       <div class="wkbtns" id="mWk" role="group" aria-label="シーズンの週"></div>
+      <p class="wkrange" id="mWkRange" style="font-size:13px"></p>
       <button type="button" class="btn small mev" data-sheet="ev" id="mEvBtn">この週のイベントを見る</button>
     </div>
     <div class="chat">
@@ -384,6 +385,7 @@ function renderCond(){
     else{var a0=dayDate((sel-1)*7+1,S),b0=dayDate(sel*7,S);rg='第'+sel+'週：'+md(a0)+'（'+dow(a0)+'）〜'+md(b0)+'（'+dow(b0)+'）';}
   }
   $('#wkRange').textContent=rg;
+  $('#mWkRange').textContent=rg;
   $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role):''].filter(Boolean).join('・');
   $('#mEvBtn').textContent=(st.week==='pre'?'開幕前':'第'+w+'週')+'のイベントを見る';
 }
