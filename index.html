@@ -356,8 +356,8 @@ function renderCond(){
   if(!st.server) t='サーバー番号を入れると、いまの週がわかります';
   else if(!S.row) t='#'+esc(st.server)+' の日程は登録されていません';
   else if(S.phase==='unknown') t='#'+esc(st.server)+' は開幕日未定です';
-  else if(S.phase==='pre') t='#'+esc(st.server)+' は開幕まであと'+S.until+'日（'+md(S.open)+' 開幕）';
-  else if(S.phase==='end') t='#'+esc(st.server)+' のシーズン7は終了しています';
+  else if(S.phase==='pre') t='#'+esc(st.server)+' は'+(S.until<=14?'プレシーズン第'+(S.until>7?1:2)+'週・':'')+'開幕まであと'+S.until+'日（'+md(S.open)+' 開幕）';
+  else if(S.phase==='end') t='#'+esc(st.server)+' はオフシーズン中です（S7本編は終了）';
   else t='#'+esc(st.server)+' はいま第'+S.week+'週・'+S.day+'日目（'+md(TODAY)+'）';
   $('#status').innerHTML=t;
   $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role):''].filter(Boolean).join('・');
