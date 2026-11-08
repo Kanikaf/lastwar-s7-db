@@ -126,6 +126,8 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .wkbtns button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .wkbtns small{display:block;font-size:9px;font-weight:500;line-height:1}
 .status{font-size:13px;margin:0}
+.wkrange{font-size:14px;font-weight:700;margin:0 0 4px}
+.wkrange:empty{display:none}
 .hint{font-size:12px;color:var(--muted);margin:0 0 6px}
 .kfilter{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px}
 .kfilter button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:1px 10px;font-size:12px;cursor:pointer}
@@ -217,6 +219,7 @@ dialog img{display:block;max-width:100%;margin:0 auto}
         </div>
         <div class="wklabel">シーズンの週</div>
         <div class="wkbtns" id="wkBtns" role="group" aria-label="シーズンの週"></div>
+        <p class="wkrange" id="wkRange"></p>
         <p class="status" id="status"></p>
       </section>
       <section class="panel" id="pEv">
@@ -375,6 +378,12 @@ function renderCond(){
   else if(S.phase==='end') t='#'+esc(st.server)+' はオフシーズン中です（S7本編は終了）';
   else t='#'+esc(st.server)+' はいま第'+S.week+'週・'+S.day+'日目（'+md(TODAY)+'）';
   $('#status').innerHTML=t;
+  var rg='';
+  if(S.open){
+    if(st.week==='pre'){var ps=new Date(S.open.getTime()-14*86400000),pe=new Date(S.open.getTime()-86400000);rg='プレシーズン：'+md(ps)+'（'+dow(ps)+'）〜'+md(pe)+'（'+dow(pe)+'）';}
+    else{var a0=dayDate((sel-1)*7+1,S),b0=dayDate(sel*7,S);rg='第'+sel+'週：'+md(a0)+'（'+dow(a0)+'）〜'+md(b0)+'（'+dow(b0)+'）';}
+  }
+  $('#wkRange').textContent=rg;
   $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role):''].filter(Boolean).join('・');
   $('#mEvBtn').textContent=(st.week==='pre'?'開幕前':'第'+w+'週')+'のイベントを見る';
 }
@@ -506,7 +515,7 @@ function answerWeek(w){
   if(!wd.daily.length&&!wd.period.length&&!singles.length) h+='<p>この週の予定はまだ登録されていません。</p>';
   botSay(h);
 }
-function answerDay(d,slot){
+function answerDay(d,slot,withOngoing){
   var S=season(), w=Math.ceil(d/7), dd=dayDate(d,S);
   var all=rows('予定表').filter(function(r){var a=num(r['開始日目']),b=num(r['終了日目']);if(a==null)return false;if(b==null)b=a;return a<=d&&b>=d});
   var single=groupSingles(all.filter(function(r){return num(r['終了日目']||r['開始日目'])===num(r['開始日目'])}));
@@ -532,9 +541,13 @@ function answerDay(d,slot){
   var udaily=daily.filter(function(r){return !r['時刻']});
   if(untimed.length) h+='<h3>この日の予定（時刻なし）</h3><ul>'+untimed.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="">'+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>';
   if(multi.length) h+='<h3>この日に始まる・終わるもの</h3><ul>'+multi.map(function(r){var st_=num(r['開始日目'])===d;return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+(st_?'開始（〜'+r['終了日目']+'日目）':'最終日')+'</span></li>'}).join('')+'</ul>';
+  if(withOngoing){
+    var ongoing=dedupe(all.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return e!==a&&a!==d&&e!==d}).concat(rows('期間イベント').filter(function(r){return inWeek(r,w)})));
+    if(ongoing.length) h+='<h3>この日も開催中</h3><ul>'+ongoing.map(function(r){var rng=r['開始日目']?('Day'+r['開始日目']+'〜'+r['終了日目']):('第'+r['開始週']+(r['終了週']&&r['終了週']!==r['開始週']?'〜'+r['終了週']:'')+'週');return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+rng+'</span></li>'}).join('')+'</ul>';
+  }
   if(udaily.length) h+='<h3>毎日やること</h3><ul>'+udaily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>';
   h+='<p class="muted" style="font-size:12px">時刻はこの端末の時間で表示しています（1日の区切りはサーバー時間0時）。</p>';
-  h+='<p><button type="button" class="link" data-week="'+w+'">第'+w+'週に開催中のイベントを見る</button></p>';
+  if(!withOngoing) h+='<p><button type="button" class="link" data-week="'+w+'">第'+w+'週に開催中のイベントを見る</button></p>';
   botSay(h);
 }
 function answerOverview(){
@@ -590,6 +603,16 @@ function handle(q){
   var S=season();
   var mw=t.match(/(?:第|WK|wk|Wk)?([1-8])週/)||t.match(/(?:WK|wk|Wk)([1-8])/);
   var mdN=t.match(/(\d{1,2})日目/);
+  var dm=t.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})(?!\d)/);
+  if(dm&&!mdN){
+    if(!S.open){botSay('<p>このサーバーは開幕日が決まっていないため、日付では探せません。「3日目」や「2週目」のように聞いてみてください。</p>');return}
+    var mo=+dm[1]-1,da=+dm[2],y=S.open.getUTCFullYear(),best=null;
+    [y-1,y,y+1].forEach(function(yy){var x=Date.UTC(yy,mo,da),diff=Math.abs(x-S.open.getTime());if(best==null||diff<best.diff)best={x:x,diff:diff}});
+    var dn2=Math.round((best.x-S.open.getTime())/86400000)+1, dt2=new Date(best.x);
+    if(dn2>=1&&dn2<=56){answerDay(dn2,slotOf(t),true);return}
+    if(dn2<1&&dn2>=-13){botSay('<p class="lead">'+md(dt2)+'（'+dow(dt2)+'）はプレシーズン中です</p><p>開幕（'+md(S.open)+'）まであと'+(1-dn2)+'日。開幕前にやることは、週ボタンの「開幕前」で確認できます。</p>');return}
+    botSay('<p>'+md(dt2)+'はシーズン7の期間外です（このサーバーのS7は '+md(S.open)+'〜'+md(dayDate(56,S))+'）。</p>');return
+  }
   if(/流れ|全体|スケジュール一覧|シーズンの予定/.test(t)){answerOverview();return}
   if(mdN){var dn=+mdN[1];if(dn>=1&&dn<=56){answerDay(dn,slotOf(t));return}}
   if(/イベント|予定/.test(t)&&/日程|日ごと|日別|順|並べ|一覧|全部|すべて|カレンダー|Day/i.test(t)){answerAllDays(mw?+mw[1]:1,mw?+mw[1]:8);return}
@@ -677,7 +700,7 @@ function sideClick(e){
   userSay(name+'は、なにをする？'); if(!answerEvent(name)) botSay('<p>詳しい情報はまだ登録されていません。</p>');
 }
 $('#side').addEventListener('click',sideClick); $('#mbar').addEventListener('click',sideClick);
-$('#cServer').addEventListener('change',function(){st.server=String(num(this.value)||'');st.week=null;save();renderCond();renderEvents()});
+$('#cServer').addEventListener('change',function(){var v=String(num(this.value)||'');if(v===st.server)return;st.server=v;st.week=null;save();renderCond();renderEvents()});
 $('#cJob').addEventListener('change',function(){st.job=this.value;save();renderCond();renderEvents();renderZukan()});
 $('#cPlan').addEventListener('change',function(){st.plan=this.value;save();renderCond();renderEvents();renderZukan()});
 $('#cRole').addEventListener('change',function(){st.role=this.value;save();renderCond();renderEvents();renderZukan()});
@@ -735,7 +758,7 @@ function load(){
   });
 }
 if(TEST){$('#testBadge').hidden=false;}
-botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
+botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「12/16は何がある？」「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
 if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
 renderCond(); renderKindFilter(); route(); load();
 })();
