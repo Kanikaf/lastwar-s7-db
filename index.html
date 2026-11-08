@@ -269,7 +269,12 @@ function save(){store('s7db_cond',{server:st.server,job:st.job,plan:st.plan,role
 var SERVER_OFFSET_MIN=-120;
 function serverToday(){var x=new Date(Date.now()+SERVER_OFFSET_MIN*60000);return new Date(Date.UTC(x.getUTCFullYear(),x.getUTCMonth(),x.getUTCDate()))}
 var TODAY=serverToday();
-function pdate(s){var m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null}
+function pdate(s){
+  s=String(s||'');var m=s.match(/(\d{4})\s*[\/\-\.年]\s*(\d{1,2})\s*[\/\-\.月]\s*(\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  m=s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);   // 12/14/2026 の形
+  return m?new Date(Date.UTC(+m[3],+m[1]-1,+m[2])):null;
+}
 function md(d){return (d.getUTCMonth()+1)+'/'+d.getUTCDate()}
 function dow(d){return DOW[d.getUTCDay()]}
 // サーバー日 d（その日の0時）の hh:mm（サーバー時間）が、実際にはいつか（ミリ秒）
@@ -285,9 +290,10 @@ function localTime(dayDateUtc,hhmm){
 function resetLocal(){var r=new Date(epochOf(serverToday(),'0:00'));return r.getHours()+':'+pad(r.getMinutes())}
 function serverRow(){
   var n=num(st.server); if(!D||n==null) return null;
-  var rows=D['サーバー日程']||[];
-  for(var i=0;i<rows.length;i++){var a=num(rows[i]['開始番号']),b=num(rows[i]['終了番号']);if(a!=null&&b!=null&&n>=a&&n<=b) return rows[i];}
-  return null;
+  var rows=D['サーバー日程']||[], best=null, bw=Infinity;
+  for(var i=0;i<rows.length;i++){var a=num(rows[i]['開始番号']),b=num(rows[i]['終了番号']);
+    if(a!=null&&b!=null&&n>=a&&n<=b&&b-a<bw){best=rows[i];bw=b-a;}}   // 重なったら一番狭い範囲を優先
+  return best;
 }
 function season(){
   var r=serverRow(), open=r?pdate(r['開幕日']):null;
