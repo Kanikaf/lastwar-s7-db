@@ -93,6 +93,13 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .bubble p{margin:.2em 0 .6em}
 .bubble h3{font-size:14px;margin:12px 0 4px;color:var(--muted)}
 .bubble ul{margin:.2em 0 .6em;padding-left:1.2em}
+.tt{border-collapse:collapse;margin:6px 0 8px;font-size:14px}
+.tt th{text-align:right;padding:4px 10px 4px 0;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:top;color:var(--muted);font-weight:700}
+.tt td{padding:4px 0;border-left:2px solid var(--line);padding-left:10px}
+.tt tr.reset td{color:var(--muted);font-size:13px}
+.tt tr.past td,.tt tr.past th{opacity:.45}
+.tt tr.next th{color:var(--accent)}
+.nexttag{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:3px;padding:1px 5px}
 .link{background:none;border:none;padding:1px 0;text-align:left;cursor:pointer;color:inherit;font:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .bubble .lead{font-weight:700;font-size:16px}
 .bubble .role{font-size:12px;color:var(--accent);font-weight:700;margin-left:4px}
@@ -256,9 +263,24 @@ var st=Object.assign({server:'',job:'',plan:'',role:'',week:null,kind:'all',zk:'
 function save(){store('s7db_cond',{server:st.server,job:st.job,plan:st.plan,role:st.role})}
 
 /* ===== 日付・週 ===== */
-var TODAY=new Date(); TODAY.setHours(0,0,0,0);
-function pdate(s){var m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null}
-function md(d){return (d.getMonth()+1)+'/'+d.getDate()}
+// ゲームの1日はサーバー時間（UTC-2）の0時で切り替わる。日付はサーバー日で数え、時刻は端末の時間で表示する
+var SERVER_OFFSET_MIN=-120;
+function serverToday(){var x=new Date(Date.now()+SERVER_OFFSET_MIN*60000);return new Date(Date.UTC(x.getUTCFullYear(),x.getUTCMonth(),x.getUTCDate()))}
+var TODAY=serverToday();
+function pdate(s){var m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null}
+function md(d){return (d.getUTCMonth()+1)+'/'+d.getUTCDate()}
+function dow(d){return DOW[d.getUTCDay()]}
+// サーバー日 d（その日の0時）の hh:mm（サーバー時間）が、実際にはいつか（ミリ秒）
+function epochOf(dayDateUtc,hhmm){var m=String(hhmm||'').match(/(\d{1,2}):(\d{2})/);if(!m||!dayDateUtc)return null;return dayDateUtc.getTime()+((+m[1])*60+(+m[2]))*60000-SERVER_OFFSET_MIN*60000}
+function pad(n){return (n<10?'0':'')+n}
+// 端末の時間で「13:00」、日付が変わっていれば「翌 1:00」
+function localTime(dayDateUtc,hhmm){
+  var base=dayDateUtc||serverToday(), e=epochOf(base,hhmm); if(e==null) return '';
+  var t=new Date(e), r=new Date(epochOf(base,'0:00'));
+  var next=t.getDate()!==r.getDate()||t.getMonth()!==r.getMonth();
+  return (next?'翌':'')+t.getHours()+':'+pad(t.getMinutes());
+}
+function resetLocal(){var r=new Date(epochOf(serverToday(),'0:00'));return r.getHours()+':'+pad(r.getMinutes())}
 function serverRow(){
   var n=num(st.server); if(!D||n==null) return null;
   var rows=D['サーバー日程']||[];
@@ -276,7 +298,7 @@ function season(){
   return s;
 }
 function dayDate(d,S){return S.open?new Date(S.open.getTime()+(d-1)*86400000):null}
-function dayLabel(d,S){var x=dayDate(d,S);return x?DOW[x.getDay()]+'曜日（'+md(x)+'）':d+'日目'}
+function dayLabel(d,S){var x=dayDate(d,S);return x?dow(x)+'曜日（'+md(x)+'）':d+'日目'}
 function weekRange(w,S){var a=dayDate((w-1)*7+1,S),b=dayDate(w*7,S);return a?md(a)+'〜'+md(b):((w-1)*7+1)+'〜'+(w*7)+'日目'}
 function curWeek(){var S=season();if(st.week!=null)return st.week;if(S.phase==='in')return S.week;if(S.phase==='end')return 8;return 1}
 
@@ -371,7 +393,7 @@ function renderEvents(){
     var last=null;
     singles.forEach(function(g){
       if(g.day!==last){var dt=dayDate(g.day,S),today=dt&&dt.getTime()===TODAY.getTime();h+='<div class="day'+(today?' today':'')+'">'+dayLabel(g.day,S)+(today?' 今日':'')+'</div>';last=g.day;}
-      h+='<button type="button" class="ev" data-day="'+g.day+'" data-time="'+esc(g.time)+'" data-name="'+esc(g.name)+'"><span class="tm">'+esc(g.time||'')+'</span>'+kindLabel(g.kind)+'<span>'+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</span></button>';
+      h+='<button type="button" class="ev" data-day="'+g.day+'" data-time="'+esc(g.time)+'" data-name="'+esc(g.name)+'"><span class="tm">'+esc(g.time?localTime(dayDate(g.day,S),g.time):'')+'</span>'+kindLabel(g.kind)+'<span>'+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</span></button>';
     });
   }
   $('#evList').innerHTML=h||'<div class="empty">この週の予定はまだ登録されていません。</div>';
@@ -460,18 +482,33 @@ function answerWeek(w){
   botSay(h);
 }
 function answerDay(d,slot){
-  var S=season(), w=Math.ceil(d/7);
+  var S=season(), w=Math.ceil(d/7), dd=dayDate(d,S);
   var all=rows('予定表').filter(function(r){var a=num(r['開始日目']),b=num(r['終了日目']);if(a==null)return false;if(b==null)b=a;return a<=d&&b>=d});
   var single=groupSingles(all.filter(function(r){return num(r['終了日目']||r['開始日目'])===num(r['開始日目'])}));
   var multi=all.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return e!==a&&(a===d||e===d)});
-  if(slot){single=single.filter(function(g){if(!g.time)return true;var hh=num(g.time.split(':')[0]);return slot==='朝'?hh>=5&&hh<12:slot==='昼'?hh>=12&&hh<18:slot==='夜'?hh>=18:slot==='深夜'?hh<5:true})}
   var daily=rows('毎日やること').filter(function(r){return inWeek(r,w)});
-  var dt=dayDate(d,S), today=dt&&dt.getTime()===TODAY.getTime();
-  var h='<p class="lead">'+dayLabel(d,S)+(S.open?'・'+d+'日目':'')+(today?'（今日）':'')+(slot?'の'+slot:'')+'</p><p class="muted">第'+w+'週</p>';
-  h+='<h3>この日のイベント</h3>'+(single.length?'<ul>'+single.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+(g.time?esc(g.time)+' ':'')+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>':'<p>この日だけの予定は登録されていません。</p>');
+  // タイムテーブルの項目（時刻つき）
+  var items=[];
+  single.forEach(function(g){if(g.time)items.push({t:g.time,html:'<button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button>'})});
+  daily.forEach(function(r){if(r['時刻'])items.push({t:r['時刻'],html:'<button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button> <span class="muted">毎日</span>'})});
+  items.forEach(function(x){x.e=epochOf(dd||serverToday(),x.t)});
+  items.sort(function(a,b){return a.e-b.e});
+  if(slot){items=items.filter(function(x){var hh=new Date(x.e).getHours();return slot==='朝'?hh>=5&&hh<12:slot==='昼'?hh>=12&&hh<18:slot==='夜'?hh>=18:slot==='深夜'?hh<5:true})}
+  var now=Date.now(), isToday=dd&&dd.getTime()===TODAY.getTime(), nextDone=false;
+  var h='<p class="lead">'+(isToday?'今日・':'')+dayLabel(d,S)+(S.open?'・'+d+'日目':'')+(slot?'の'+slot:'')+'</p><p class="muted">第'+w+'週</p>';
+  h+='<table class="tt"><tbody><tr class="reset"><th>'+localTime(dd,'0:00')+'</th><td>1日のリセット</td></tr>';
+  items.forEach(function(x){
+    var past=isToday&&x.e<now, nx=isToday&&!past&&!nextDone; if(nx)nextDone=true;
+    h+='<tr class="'+(past?'past':'')+(nx?' next':'')+'"><th>'+localTime(dd,x.t)+'</th><td>'+x.html+(nx?' <span class="nexttag">次</span>':'')+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  if(!items.length) h+='<p class="muted">時刻が決まっている予定は登録されていません。</p>';
+  var untimed=single.filter(function(g){return !g.time});
+  var udaily=daily.filter(function(r){return !r['時刻']});
+  if(untimed.length) h+='<h3>この日の予定（時刻なし）</h3><ul>'+untimed.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="">'+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>';
   if(multi.length) h+='<h3>この日に始まる・終わるもの</h3><ul>'+multi.map(function(r){var st_=num(r['開始日目'])===d;return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+(st_?'開始（〜'+r['終了日目']+'日目）':'最終日')+'</span></li>'}).join('')+'</ul>';
-  if(daily.length) h+='<h3>毎日やること</h3><ul>'+daily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>';
-  if(single.length||multi.length) h+='<p class="muted" style="font-size:13px">イベント名を押すと、やることが出ます。</p>';
+  if(udaily.length) h+='<h3>毎日やること</h3><ul>'+udaily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>';
+  h+='<p class="muted" style="font-size:12px">時刻はこの端末の時間で表示しています（1日の区切りはサーバー時間0時）。</p>';
   h+='<p><button type="button" class="link" data-week="'+w+'">第'+w+'週に開催中のイベントを見る</button></p>';
   botSay(h);
 }
@@ -520,7 +557,7 @@ function handle(q){
       d=S.day+(tomorrow?1:0);
     } else {
       var target=DOW.indexOf(md_[1]),ws=(wk-1)*7+1;
-      for(var i=0;i<7;i++){var x=dayDate(ws+i,S);if(x.getDay()===target){d=ws+i;break}}
+      for(var i=0;i<7;i++){var x=dayDate(ws+i,S);if(x.getUTCDay()===target){d=ws+i;break}}
     }
     if(d&&d>=1&&d<=56){answerDay(d,slot);return}
   }
