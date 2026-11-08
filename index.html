@@ -80,7 +80,7 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 
 /* kind labels */
 .kind{display:inline-block;font-size:11px;font-weight:700;line-height:1;padding:3px 5px 2px;border-radius:3px;color:var(--bg);margin-right:6px;vertical-align:1px}
-.k-war{background:var(--war)}.k-grow{background:var(--grow)}.k-season{background:var(--season)}.k-none{background:var(--muted)}
+.k-season{background:var(--war)}.k-base{background:var(--grow)}.k-hero{background:var(--season)}.k-other{background:var(--steel)}.k-none{background:var(--muted)}
 
 /* layout */
 .chat-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
@@ -241,7 +241,9 @@ dialog img{display:block;max-width:100%;margin:0 auto}
 /* ===== 設定 ===== */
 var API = 'https://script.google.com/macros/s/AKfycbyIHECaAgs40MMnkPq_P8II6fe4H10sT7kBKyZBdJ4aqYeh8mLb1TwGz3136Ipp4BGAmA/exec';
 var DOW = ['日','月','火','水','木','金','土'];
-var KIND = {'戦争':['戦','k-war'],'育成':['育','k-grow'],'シーズンイベント':['季','k-season']};
+var KIND = {'シーズンイベント':['季','k-season'],'基地育成':['基','k-base'],'英雄育成':['英','k-hero'],'その他イベント':['他','k-other']};
+var KIND_OLD = {'戦争':'シーズンイベント','育成':'基地育成'};
+function kindOf(r){var k=r['種類']||'';return KIND_OLD[k]||k}
 var ROLE_TAGS = {'盟主':['盟主','R5','幹部'],'戦神':['戦神','R4','幹部'],'女神':['女神','R4','幹部'],'理事':['理事','R4','幹部'],'執事':['執事','R4','幹部'],'R4':['R4','R4（役職なし）','幹部'],'一般':['一般']};
 
 var $ = function(s){return document.querySelector(s)};
@@ -310,8 +312,8 @@ function visible(r){
   return true;
 }
 function forWho(r){var a=[].concat(split(r['対象職業']),split(r['対象作戦計画']),split(r['対象役職']));return a.length?a.join('・'):''}
-function kindLabel(k){var x=KIND[k];return x?'<span class="kind '+x[1]+'">'+x[0]+'</span>':'<span class="kind k-none">他</span>'}
-function kindOk(r){return st.kind==='all'||r['種類']===st.kind}
+function kindLabel(k){var x=KIND[KIND_OLD[k]||k];return x?'<span class="kind '+x[1]+'">'+x[0]+'</span>':'<span class="kind k-none">-</span>'}
+function kindOk(r){return st.kind==='all'||kindOf(r)===st.kind}
 
 /* ===== データの取り出し ===== */
 function rows(name){return (D&&D[name]||[]).filter(visible)}
@@ -364,7 +366,7 @@ function renderCond(){
 
 /* ===== 右側：イベント欄 ===== */
 function renderKindFilter(){
-  var ks=[['all','すべて'],['戦争','戦争'],['育成','育成'],['シーズンイベント','シーズン']];
+  var ks=[['all','すべて'],['シーズンイベント','シーズン'],['基地育成','基地'],['英雄育成','英雄'],['その他イベント','その他']];
   $('#kfilter').innerHTML=ks.map(function(k){return '<button type="button" data-kind="'+k[0]+'" aria-pressed="'+(st.kind===k[0])+'">'+k[1]+'</button>'}).join('');
 }
 function renderEvents(){
@@ -375,8 +377,9 @@ function renderEvents(){
     var r=S.row, h='';
     if(r){h+='<div class="sec">日程</div><p class="empty" style="color:var(--ink)">'+(r['予告日']?'予告 '+esc(r['予告日'])+'　':'')+(r['開幕日']?'開幕 '+esc(r['開幕日']):'開幕日未定')+'</p>';
       if(r['予告期間の内容']) h+='<button type="button" class="ev" data-pre="1"><span>'+esc(r['予告期間の内容'])+'</span></button>';}
-    var pre=rows('知識メモ').filter(function(k){return /開幕前|プレ|予告|準備/.test(k['対象週']+' '+k['タグ']+' '+k['項目'])});
-    if(pre.length) h+='<div class="sec">開幕までに知っておくこと</div>'+pre.map(function(k){return '<button type="button" class="ev" data-k="'+esc(k['知識ID'])+'"><span>'+esc(k['項目'])+'</span></button>'}).join('');
+    var pre=rows('知識メモ').filter(function(k){return /開幕前|プレ|予告|準備/.test(k['対象週']+' '+k['タグ']+' '+k['項目'])}).filter(kindOk);
+    var grp=[['開幕2週間前から',function(k){return /2週/.test(k['対象週'])}],['開幕1週間前から',function(k){return /1週/.test(k['対象週'])}],['開幕までに',function(k){return !/[12]週/.test(k['対象週'])}]];
+    grp.forEach(function(g){var list=pre.filter(g[1]);if(list.length)h+='<div class="sec">'+g[0]+'</div>'+list.map(function(k){return '<button type="button" class="ev" data-k="'+esc(k['知識ID'])+'">'+kindLabel(k['種類'])+'<span>'+esc(k['項目'])+'</span></button>'}).join('')});
     $('#evList').innerHTML=h||'<div class="empty">開幕前の情報はまだ登録されていません。</div>';
     return;
   }
