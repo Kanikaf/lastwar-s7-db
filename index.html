@@ -79,7 +79,7 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .sr{position:absolute;left:-9999px}
 
 /* kind labels */
-.kind{display:inline-block;font-size:11px;font-weight:700;line-height:1;padding:3px 5px 2px;border-radius:3px;color:var(--bg);margin-right:6px;vertical-align:1px}
+.kind{display:inline-block;min-width:2.6em;text-align:center;font-size:11px;font-weight:700;line-height:1;padding:3px 4px 2px;border-radius:3px;color:var(--bg);margin-right:6px;vertical-align:1px;white-space:nowrap}
 .k-season{background:var(--war)}.k-base{background:var(--grow)}.k-hero{background:var(--season)}.k-other{background:var(--steel)}.k-none{background:var(--muted)}
 
 /* layout */
@@ -241,7 +241,7 @@ dialog img{display:block;max-width:100%;margin:0 auto}
 /* ===== 設定 ===== */
 var API = 'https://script.google.com/macros/s/AKfycbyIHECaAgs40MMnkPq_P8II6fe4H10sT7kBKyZBdJ4aqYeh8mLb1TwGz3136Ipp4BGAmA/exec';
 var DOW = ['日','月','火','水','木','金','土'];
-var KIND = {'シーズンイベント':['季','k-season'],'基地育成':['基','k-base'],'英雄育成':['英','k-hero'],'その他イベント':['他','k-other']};
+var KIND = {'シーズンイベント':['イベ','k-season'],'基地育成':['基地','k-base'],'英雄育成':['英雄','k-hero'],'その他イベント':['他','k-other']};
 var KIND_OLD = {'戦争':'シーズンイベント','育成':'基地育成'};
 function kindOf(r){var k=r['種類']||'';return KIND_OLD[k]||k}
 var ROLE_TAGS = {'盟主':['盟主','R5','幹部'],'戦神':['戦神','R4','幹部'],'女神':['女神','R4','幹部'],'理事':['理事','R4','幹部'],'執事':['執事','R4','幹部'],'R4':['R4','R4（役職なし）','幹部'],'一般':['一般']};
