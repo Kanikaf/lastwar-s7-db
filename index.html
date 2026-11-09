@@ -586,7 +586,7 @@ function answerAllDays(fromW,toW){
   h+='<p class="muted" style="font-size:12px">週をまたいで続くイベント（殲滅作戦など）は、週ボタンか「◯週目」で確認できます。時刻はこの端末の時間です。</p>';
   botSay(h);
 }
-function answerPre(which){   // which: 1=開幕1週間前, 2=開幕2週間前, 0=開幕前すべて
+function answerPre(which,note){   // which: 1=開幕1週間前, 2=開幕2週間前, 0=開幕前すべて
   var S=season();
   var all=preferS7(rows('知識メモ').filter(function(k){return /開幕前|プレ|予告|準備/.test(k['対象週']+' '+k['タグ']+' '+k['項目'])}));
   var pick=function(n){return all.filter(function(k){return n===1?/1週/.test(k['対象週']):n===2?/2週/.test(k['対象週']):!/[12]週/.test(k['対象週'])})};
@@ -596,6 +596,7 @@ function answerPre(which){   // which: 1=開幕1週間前, 2=開幕2週間前, 0
   if(which===1){h='<p class="lead">開幕1週間前にやること</p>'+sec(1,'開幕1週間前')+sec(0,'開幕までに（時期の指定なし）');}
   else if(which===2){h='<p class="lead">開幕2週間前にやること</p>'+sec(2,'開幕2週間前')+sec(0,'開幕までに（時期の指定なし）');}
   else{h='<p class="lead">開幕前にやること</p>'+sec(2,'開幕2週間前から')+sec(1,'開幕1週間前から')+sec(0,'開幕までに');}
+  if(note) h=h.replace('</p>','</p><p>'+note+'</p>');
   if(h.indexOf('<h3>')<0) h+='<p>開幕前の情報はまだ登録されていません。</p>';
   if(S.open) h+='<p class="muted" style="font-size:12px">開幕は'+md(S.open)+'（'+dow(S.open)+'）です。</p>';
   botSay(h);
@@ -646,7 +647,10 @@ function handle(q){
     if(!S.open){botSay('<p>このサーバーは開幕日が決まっていないため、曜日では探せません。「3日目」や「2週目」のように聞いてみてください。</p>');return}
     var wk=mw?+mw[1]:curWeek(), d=null;
     if(today||tomorrow){
-      if(S.phase!=='in'){botSay('<p>まだシーズン中ではありません（'+(S.phase==='pre'?'開幕まであと'+S.until+'日':'終了')+'）。「1日目」のように聞いてみてください。</p>');return}
+      if(S.phase==='pre'){var u=S.until-(tomorrow?1:0);if(u<1){answerDay(1,slot);return}
+        var note='開幕まであと'+u+'日です。'+(u>14?'今から進められる準備です。':'');
+        answerPre(u<=7?1:u<=14?2:0,note);return}
+      if(S.phase!=='in'){botSay('<p>シーズン7の本編は終了しています（オフシーズン中）。「8週目」のように聞くと、終盤の予定を確認できます。</p>');return}
       d=S.day+(tomorrow?1:0);
     } else {
       var target=DOW.indexOf(md_[1]),ws=(wk-1)*7+1;
