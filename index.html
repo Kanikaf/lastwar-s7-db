@@ -485,7 +485,7 @@ function answerEvent(name,opt){
   var dly=rows('毎日やること').filter(function(r){return r['名前']===nm});
   if(!sched.length&&!per.length&&!dly.length) return false;
   var h='', parts=[];
-  if(opt.day!=null){h+='<p class="lead">'+esc(nm)+'</p><p class="muted">'+dayLabel(opt.day,S)+(opt.time?' '+esc(opt.time):'')+'</p>';}
+  if(opt.day!=null){h+='<p class="lead">'+esc(nm)+'</p><p class="muted">'+dayLabel(opt.day,S)+(opt.time?' '+localTime(dayDate(opt.day,S),opt.time):'')+'</p>';}
   else{
     var when=[];
     per.forEach(function(r){when.push('第'+r['開始週']+(r['終了週']&&r['終了週']!==r['開始週']?'〜'+r['終了週']:'')+'週')});
@@ -513,10 +513,11 @@ function answerKnowledge(list){
 function answerWeek(w){
   var S=season(), wd=weekData(w), singles=groupSingles(wd.single);
   var h='<p class="lead">第'+w+'週（'+weekRange(w,S)+'）</p>';
-  if(wd.daily.length) h+='<h3>毎日やること</h3><ul>'+wd.daily.map(function(r){return '<li>'+kindLabel(r['種類'])+esc(r['名前'])+'</li>'}).join('')+'</ul>';
-  if(wd.period.length) h+='<h3>開催中</h3><ul>'+wd.period.map(function(r){return '<li>'+kindLabel(r['種類'])+esc(r['イベント名'])+'</li>'}).join('')+'</ul>';
-  if(singles.length) h+='<h3>曜日・時刻</h3><ul>'+singles.map(function(g){return '<li>'+dayLabel(g.day,S)+' '+esc(g.time)+' '+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</li>'}).join('')+'</ul>';
+  if(wd.daily.length) h+='<h3>毎日やること</h3><ul>'+wd.daily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button>'+(num(r['開始週'])===w?' <span class="muted">今週から</span>':'')+'</li>'}).join('')+'</ul>';
+  if(wd.period.length) h+='<h3>開催中</h3><ul>'+wd.period.map(function(r){return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+'</button></li>'}).join('')+'</ul>';
+  if(singles.length) h+='<h3>曜日・時刻</h3><ul>'+singles.map(function(g){var dd=dayDate(g.day,S);return '<li>'+dayLabel(g.day,S)+' <button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="'+esc(g.time)+'">'+(g.time?localTime(dd,g.time)+' ':'')+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>';
   if(!wd.daily.length&&!wd.period.length&&!singles.length) h+='<p>この週の予定はまだ登録されていません。</p>';
+  else h+='<p class="muted" style="font-size:13px">イベント名を押すと、やることが出ます。時刻はこの端末の時間です。</p>';
   botSay(h);
 }
 function answerDay(d,slot,withOngoing){
