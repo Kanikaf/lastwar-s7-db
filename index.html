@@ -100,6 +100,7 @@ main{max-width:1180px;margin:0 auto;padding:16px 20px 48px}
 .tt tr.past td,.tt tr.past th{opacity:.45}
 .tt tr.next th{color:var(--accent)}
 .nexttag{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:3px;padding:1px 5px}
+.contrib-in{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font:inherit}
 .tfb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:13px}
 .tfb-in{flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
 .testbadge{background:var(--war);color:var(--bg);font-size:11px;font-weight:700;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:3px}
@@ -295,6 +296,11 @@ var UI_EN={
  'ほしい情報だった':'Helpful','違った・足りない':'Not what I needed','テスト：':'Test:','ありがとうございます（記録しました）':'Thanks (recorded)','何が知りたかったですか？（任意）':'What did you want to know? (optional)',
  'サーバー番号を入れると、いまの週がわかります':'Enter your server number to see the current week','開幕日未定です':'launch date TBD','オフシーズン中です（S7本編は終了）':'is in the off-season (S7 has ended)',
  '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.',
+ '答えを知っていたら、教えてください（管理者が確認してから載せます）。':'If you know the answer, please tell us (the admin will check it before publishing).',
+ '知っている情報を送る':'Share what you know','送信中…':'Sending…',
+ '知っていることを書いてください（500文字まで）。スクショがあれば2枚まで付けられます。':'Write what you know (up to 500 characters). You can attach up to 2 screenshots.',
+ 'ありがとうございます。管理者が確認してから反映します。':'Thank you! The admin will review it before publishing.',
+ '送れませんでした。時間をおいてもう一度お試しください。':'Could not send. Please try again later.',
  'いまAIが混み合っていて答えを作れませんでした。言い方を変えるか、少し待ってからもう一度送ってください。':'The AI is busy right now. Please rephrase or try again in a moment.','日程はまだ登録されていません。':'Schedule not registered yet.',
  'サーバー未設定':'No server','職業未選択':'No class','S7 データベース':'S7 Database','（答えを作れませんでした）':'(No answer)','はプレシーズン中です':' is in the pre-season',
  'は、なにをする？':' — what should I do?','について':' — details','LastWar S7 データベース':'LastWar S7 Database',
@@ -712,10 +718,33 @@ function answerSchedule(){
   botSay('<p class="lead">#'+esc(st.server)+' の日程</p><ul>'+(r['予告日']?'<li>予告：'+esc(r['予告日'])+(r['予告期間の内容']?'（'+esc(r['予告期間の内容'])+'）':'')+'</li>':'')+'<li>開幕：'+(r['開幕日']?esc(r['開幕日']):'未定')+'</li></ul>');
 }
 function notFound(q){
-  botSay('<p>この質問に答えられる情報はまだ登録されていません。管理者に知らせました。</p>');
-  var S=season();
+  botSay('<p>この質問に答えられる情報はまだ登録されていません。管理者に知らせました。</p>'
+    +'<div class="contrib" data-q="'+esc(q)+'"><p class="muted" style="font-size:13px;margin:6px 0">答えを知っていたら、教えてください（管理者が確認してから載せます）。</p>'
+    +'<button type="button" class="btn ghost small" data-contrib="open">知っている情報を送る</button></div>');
   fetch(API+'?type=request&q='+encodeURIComponent(q)+'&week='+encodeURIComponent(st.week==='pre'?'開幕前':curWeek())+'&server='+encodeURIComponent(st.server||'')).catch(function(){});
 }
+// 情報提供フォーム（答えられなかった質問の下に出す）
+function shrinkImg(file){return new Promise(function(res,rej){var r=new FileReader();r.onerror=rej;r.onload=function(){var im=new Image();im.onerror=rej;im.onload=function(){
+  var m=1600,s=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);var u=c.toDataURL('image/jpeg',0.85);res({data:u.split(',')[1],mime:'image/jpeg'})};im.src=r.result};r.readAsDataURL(file)})}
+log.addEventListener('click',function(e){
+  var b=e.target.closest('[data-contrib]');if(!b)return;var box=b.closest('.contrib');
+  if(b.dataset.contrib==='open'){
+    box.innerHTML='<p class="muted" style="font-size:13px;margin:6px 0">知っていることを書いてください（500文字まで）。スクショがあれば2枚まで付けられます。</p>'
+      +'<textarea class="contrib-in" maxlength="500" rows="4"></textarea>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><input type="file" accept="image/*" multiple class="contrib-file"><button type="button" class="btn small" data-contrib="send">送る</button></div>';
+    box.querySelector('textarea').focus();return}
+  if(b.dataset.contrib==='send'){
+    var text=box.querySelector('textarea').value.trim(),files=[].slice.call(box.querySelector('.contrib-file').files||[]).slice(0,2);
+    if(!text&&!files.length){box.querySelector('textarea').focus();return}
+    b.disabled=true;b.textContent=T('送信中…');
+    Promise.all(files.map(shrinkImg)).then(function(images){
+      return fetch(API,{method:'POST',body:JSON.stringify({action:'contribute',q:box.dataset.q,text:text,images:images,server:st.server||''})}).then(function(r){return r.json()});
+    }).then(function(j){
+      box.innerHTML='<p class="muted" style="font-size:13px">'+(j&&j.ok?T('ありがとうございます。管理者が確認してから反映します。'):T('送れませんでした。時間をおいてもう一度お試しください。'))+'</p>';
+    }).catch(function(){box.innerHTML='<p class="muted" style="font-size:13px">'+T('送れませんでした。時間をおいてもう一度お試しください。')+'</p>'});
+  }
+});
 
 // 英語の質問を、日本語のパターンに置き換える（AIを使わずに英語で答えるため）
 var EN_DOW={mon:'月',tue:'火',wed:'水',thu:'木',fri:'金',sat:'土',sun:'日'};
