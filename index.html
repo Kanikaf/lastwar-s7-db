@@ -294,7 +294,8 @@ var UI_EN={
  '図鑑はまだ登録がありません。':'No gallery items yet.','画像を読み込み中…':'Loading image…','画像を読み込めませんでした':'Could not load image',
  'ほしい情報だった':'Helpful','違った・足りない':'Not what I needed','テスト：':'Test:','ありがとうございます（記録しました）':'Thanks (recorded)','何が知りたかったですか？（任意）':'What did you want to know? (optional)',
  'サーバー番号を入れると、いまの週がわかります':'Enter your server number to see the current week','開幕日未定です':'launch date TBD','オフシーズン中です（S7本編は終了）':'is in the off-season (S7 has ended)',
- '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.','日程はまだ登録されていません。':'Schedule not registered yet.',
+ '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.',
+ 'いまAIが混み合っていて答えを作れませんでした。言い方を変えるか、少し待ってからもう一度送ってください。':'The AI is busy right now. Please rephrase or try again in a moment.','日程はまだ登録されていません。':'Schedule not registered yet.',
  'サーバー未設定':'No server','職業未選択':'No class','S7 データベース':'S7 Database','（答えを作れませんでした）':'(No answer)','はプレシーズン中です':' is in the pre-season',
  'は、なにをする？':' — what should I do?','について':' — details','LastWar S7 データベース':'LastWar S7 Database',
  'データを読み込めませんでした。時間をおいて開き直してください。':'Could not load data. Please reopen later.',
@@ -716,6 +717,31 @@ function notFound(q){
   fetch(API+'?type=request&q='+encodeURIComponent(q)+'&week='+encodeURIComponent(st.week==='pre'?'開幕前':curWeek())+'&server='+encodeURIComponent(st.server||'')).catch(function(){});
 }
 
+// 英語の質問を、日本語のパターンに置き換える（AIを使わずに英語で答えるため）
+var EN_DOW={mon:'月',tue:'火',wed:'水',thu:'木',fri:'金',sat:'土',sun:'日'};
+var EN_MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function enToJa(q){
+  var t=' '+q.toLowerCase()+' ';
+  // 英語のイベント名などを、翻訳シートの逆引きで日本語に戻す
+  var rev=Object.keys(TR_DATA||{}).map(function(ja){return [String(TR_DATA[ja]).toLowerCase(),ja]}).filter(function(x){return x[0].length>=4}).sort(function(a,b){return b[0].length-a[0].length});
+  rev.forEach(function(x){if(t.indexOf(x[0])>=0)t=t.split(x[0]).join(' '+x[1]+' ')});
+  var R=[
+    [/\b([12])\s*weeks?\s*(before|prior)/g,' $1週前 '],[/\bpre-?\s*season\s*(week\s*)?([12])\b/g,' プレシーズン$2週 '],
+    [/\b(pre-?\s*season|before\s+(the\s+)?(launch|season|start)|prepar\w*)\b/g,' 開幕前 '],
+    [/\bday\s*(\d{1,2})\b/g,' $1日目 '],[/\b(first|1st)\s+day\b/g,' 1日目 '],
+    [/\b(?:week|wk)\s*(\d)\b/g,' 第$1週 '],[/\b(\d)(?:st|nd|rd|th)\s+week\b/g,' 第$1週 '],[/\bthis\s+week\b/g,' 今週 '],
+    [/\btonight\b/g,' 今日の夜 '],[/\btoday\b/g,' 今日 '],[/\btomorrow\b/g,' 明日 '],
+    [/\bmorning\b/g,' 朝 '],[/\bafternoon\b/g,' 昼 '],[/\b(evening|night)\b/g,' 夜 '],[/\b(late\s+night|midnight)\b/g,' 深夜 '],
+    [/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/g,function(m,d){return ' '+EN_DOW[d]+'曜 '}],
+    [/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})\b/g,function(m,mo,d){return ' '+EN_MON[mo]+'/'+d+' '}],
+    [/\b(overview|whole\s+season|season\s+flow|outline)\b/g,' シーズンの流れ '],
+    [/\b(events?\s+by\s+day|day\s+by\s+day|all\s+events|event\s+list|list\s+of\s+events|timeline)\b/g,' イベントを日程ごとに一覧 '],
+    [/\b(launch\s+date|start\s+date|when\s+does\s+.*\s+(start|begin|launch)|opening)\b/g,' 開幕はいつ '],
+    [/\bdaily\b/g,' 毎日 '],[/\bschedule\b/g,' 日程 ']
+  ];
+  R.forEach(function(r){t=t.replace(r[0],r[1])});
+  return t.replace(/\s+/g,' ').trim();
+}
 function slotOf(t){return /深夜/.test(t)?'深夜':/朝/.test(t)?'朝':/昼/.test(t)?'昼':/夜/.test(t)?'夜':''}
 /* B1：パターンで答えられない質問は、AI（GAS経由のGemini）に「答えの種類と見せるデータ」だけ選ばせる */
 function askAI(q,cur){
@@ -723,13 +749,16 @@ function askAI(q,cur){
   var ctx={phase:S.phase,today_day:S.day||null,days_until_open:S.until||null,open_date:S.open?S.open.toISOString().slice(0,10):null,selected_week:st.week==='pre'?'開幕前':curWeek()};
   var ty=document.createElement('div');ty.className='typing';ty.textContent=T('考えています…');log.appendChild(ty);log.scrollTop=log.scrollHeight;
   var done=function(fn){ty.remove();CUR=cur;VIA_AI=true;try{fn()}finally{CUR=null;VIA_AI=false}};
+  var finished=false;
+  var busy=function(){ansType='AI混雑';botSay('<p>'+T('いまAIが混み合っていて答えを作れませんでした。言い方を変えるか、少し待ってからもう一度送ってください。')+'</p>')};
+  var timer=setTimeout(function(){if(finished)return;finished=true;done(busy)},20000);   // 20秒で待つのをやめる
   fetch(API+'?type=ask&q='+encodeURIComponent(q)+'&ctx='+encodeURIComponent(JSON.stringify(ctx))).then(function(r){return r.json()}).then(function(j){
+    if(finished)return;finished=true;clearTimeout(timer);
     done(function(){
-      if(!j||!j.ok||!j.r){notFound(q);return}
-      var r=j.r, ok=dispatchAI(r);
-      if(!ok) notFound(q);
+      if(!j||!j.ok){ if(j&&/Gemini 5\d\d|Gemini 429|本日の上限/.test(j.error||'')) busy(); else notFound(q); return }
+      if(!j.r||!dispatchAI(j.r)) notFound(q);
     });
-  }).catch(function(){done(function(){notFound(q)})});
+  }).catch(function(){if(finished)return;finished=true;clearTimeout(timer);done(busy)});
 }
 function dispatchAI(r){
   var byId=function(sheet,key){return (r.ids||[]).map(function(id){return rows(sheet).filter(function(x){return x[key]===id})[0]}).filter(Boolean)};
@@ -749,7 +778,7 @@ function dispatchAI(r){
 }
 /* 質問の判断（AIなしの言葉判断） */
 function handle(q){
-  var t=q.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
+  var t=(/[a-z]/i.test(q)?enToJa(q):q).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
   // 言い換え（最初から入っているもの＋スプシの「言い換え」シート）
   var alias=[['初日','1日目'],['開幕日','1日目'],['最終日','56日目'],['最終週','8週'],['デイリー','毎日']].concat((D['言い換え']||[]).map(function(r){return [r['言葉'],r['置き換え']]}));
   alias.forEach(function(a){if(a[0]&&a[1]&&t.indexOf(a[0])>=0)t=t.split(a[0]).join(a[1])});
@@ -822,7 +851,10 @@ $('#ask').addEventListener('submit',function(e){
   if(!D){botSay('<p>データを読み込み中です。少し待ってからもう一度送ってください。</p>');return}
   CUR={id:newLogId(),q:q}; ansType=''; NEED_AI=false; VIA_AI=false;
   handle(q);
-  if(NEED_AI){var cur=CUR;CUR=null;askAI(q,cur);return}
+  if(NEED_AI){
+    if(D&&D.ai===true){var cur=CUR;CUR=null;askAI(q,cur);return}
+    notFound(q);                                   // AIオフ：すぐに「見つからない」→ リクエストに記録
+  }
   if(CUR&&!CUR.sent&&TEST){botSay('<p class="muted">（答えを作れませんでした）</p>')}
   CUR=null;
 });
@@ -923,7 +955,7 @@ function load(){
 // 自動テスト用の入口（画面の動きには影響しない）
 window.__s7={ask:function(q){CUR={id:'T',q:q,sent:true};ansType='';var n=log.querySelectorAll('.msg.bot').length;handle(q);var b=log.querySelectorAll('.msg.bot');CUR=null;return {type:ansType,text:b.length>n?b[b.length-1].textContent:''}},ready:function(){return !!D}};
 if(LANG==='en'){
-  botSay('<p>Ask anything about Season 7. Pick a week to see its events, and tap an event to see what to do.</p><p class="muted" style="font-size:13px">Examples: "What happens on 12/16?", "Day 3", "Wednesday of week 2", "Tonight", "Season overview", "City Clash", "Daily tasks"</p>');
+  botSay('<p>Ask anything about Season 7. Pick a week to see its events, and tap an event to see what to do.</p><p class="muted" style="font-size:13px">Examples: "Dec 16", "Day 3", "Wednesday of week 2", "Tonight", "1 week before launch", "Season overview", "Daily tasks"</p>');
   if(!st.server||!st.job||!st.role) botSay('<p>First, set your server number, class and alliance rank '+(innerWidth<900?'with "Settings" above':'on the right')+'. Only information relevant to you will be shown.</p>');
 }else{
   botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「12/16は何がある？」「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
