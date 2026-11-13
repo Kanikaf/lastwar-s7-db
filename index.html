@@ -185,7 +185,6 @@ dialog img{display:block;max-width:100%;margin:0 auto}
     </nav>
     <div class="meta"><span id="updated">読み込み中…</span><span>#720 カニカフの趣味によるまとめです</span></div>
     <button class="theme-btn" id="langBtn" type="button">EN</button>
-    <button class="theme-btn" id="themeBtn" type="button">表示切替</button>
   </div>
 </header>
 
@@ -295,7 +294,17 @@ var UI_EN={
  '図鑑はまだ登録がありません。':'No gallery items yet.','画像を読み込み中…':'Loading image…','画像を読み込めませんでした':'Could not load image',
  'ほしい情報だった':'Helpful','違った・足りない':'Not what I needed','テスト：':'Test:','ありがとうございます（記録しました）':'Thanks (recorded)','何が知りたかったですか？（任意）':'What did you want to know? (optional)',
  'サーバー番号を入れると、いまの週がわかります':'Enter your server number to see the current week','開幕日未定です':'launch date TBD','オフシーズン中です（S7本編は終了）':'is in the off-season (S7 has ended)',
- '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.','日程はまだ登録されていません。':'Schedule not registered yet.'
+ '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.','日程はまだ登録されていません。':'Schedule not registered yet.',
+ 'サーバー未設定':'No server','職業未選択':'No class','S7 データベース':'S7 Database','（答えを作れませんでした）':'(No answer)','はプレシーズン中です':' is in the pre-season',
+ 'は、なにをする？':' — what should I do?','について':' — details','LastWar S7 データベース':'LastWar S7 Database',
+ 'データを読み込めませんでした。時間をおいて開き直してください。':'Could not load data. Please reopen later.',
+ '週をまたいで続くイベント（殲滅作戦など）は、週ボタンか「◯週目」で確認できます。時刻はこの端末の時間です。':'Multi-week events can be checked with the week buttons. Times are in your local time.',
+ 'このサーバーは開幕日が決まっていないため、日付では探せません。「3日目」や「2週目」のように聞いてみてください。':'This server has no launch date yet, so dates cannot be used. Try "Day 3" or "Week 2".',
+ 'このサーバーは開幕日が決まっていないため、曜日では探せません。「3日目」や「2週目」のように聞いてみてください。':'This server has no launch date yet, so weekdays cannot be used. Try "Day 3" or "Week 2".',
+ 'シーズン7の本編は終了しています（オフシーズン中）。「8週目」のように聞くと、終盤の予定を確認できます。':'Season 7 has ended (off-season). Ask "Week 8" to see the final events.',
+ '右の「サーバー番号」を入れると、そのサーバーの日程を表示します。':'Enter your server number to see its schedule.',
+ '施設':'Facility','敵':'Enemy','スキル':'Skill','英雄':'Hero','アイテム':'Item','物資':'Supplies','職業':'Class','マップ':'Map','作戦計画':'Battle plan',
+ '画像を押すと大きく表示されます':'Tap an image to enlarge','いまの週に戻す':'Back to this week','開幕前の予定は？':'Pre-season schedule?'
 };
 var DOW_EN={'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri','土':'Sat','日':'Sun'};
 var RULES_EN=[
@@ -305,14 +314,20 @@ var RULES_EN=[
  [/翌/g,'next day '],[/〜/g,'–'],[/（/g,' ('],[/）/g,')'],[/、/g,', '],[/。/g,'. '],[/・/g,' · '],[/：/g,': ']
 ];
 var TR_DATA=store('s7db_tr_en')||{};
+var EXACT_ONLY={'施設':1,'敵':1,'スキル':1,'英雄':1,'アイテム':1,'物資':1,'職業':1,'マップ':1,'作戦計画':1,'すべて':1,'シーズン':1,'その他':1,'開幕前':1,'毎日':1,'開始':1,'最終日':1,'予告':1,'開幕':1,'未定':1,'日程':1,'ポイント':1};   // 文の中では置き換えない短い言葉
 var TR_KEYS=null;
 // 文の形が決まっているもの（辞書より先に置き換える）
 var PRE_EN=[
+ [/第(\d+)週のイベントを見る/g,'See week $1 events'],[/開幕前のイベントを見る/g,'See pre-season events'],[/この週のイベントを見る/g,"See this week's events"],
+ [/毎日（第(\d+)〜(\d+)週）/g,'Daily (weeks $1–$2)'],[/開始（〜Day\s?(\d+)）/g,'starts (until Day $1)'],[/開始（〜(\d+)日目）/g,'starts (until Day $1)'],
+ [/今日・/g,'Today · '],[/予告：/g,'Preview: '],[/開幕：/g,'Launch: '],[/プレシーズン：/g,'Pre-season: '],[/\sほか/g,' etc.'],
+ [/開幕（(\d+\/\d+)）まであと(\d+)日。開幕前にやることは、週ボタンの「開幕前」で確認できます。/g,'$2 days until launch ($1). See the "Pre-season" button for preparation.'],
+ [/はシーズン7の期間外です（このサーバーのS7は\s*([^）]+)）。/g,' is outside Season 7 (S7 on this server: $1).'],
  [/第(\d+)週に開催中のイベントを見る/g,'See events running in week $1'],[/第(\d+)週の毎日やること/g,'Week $1 daily tasks'],[/第(\d+)週のイベント/g,'Week $1 events'],
  [/開幕まであと(\d+)日です。/g,'$1 days until launch. '],[/開幕まであと(\d+)日/g,'$1 days until launch'],[/今から進められる準備です。/g,'Things you can prepare now.'],
  [/開幕は(\d+\/\d+)/g,'Launch is $1'],[/(\d+\/\d+) 開幕/g,'launch $1'],[/プレシーズン第(\d)週/g,'Pre-season week $1'],
  [/は開幕日未定です/g,': launch date TBD'],[/の日程はまだ登録されていません/g,': schedule not registered'],[/の日程/g,' schedule'],
- [/第(\d+)〜(\d+)週/g,'Weeks $1–$2'],[/第(\d+)週/g,'Week $1'],[/Day(\d+)〜(\d+)/g,'Day $1–$2'],[/(\d+)日目/g,'Day $1'],[/〜Day/g,'–Day'],
+ [/第(\d+)〜(\d+)週/g,'Weeks $1–$2'],[/第(\d+)週/g,'Week $1'],[/Day(\d+)〜(\d+)/g,'Day $1–$2'],[/(\d+)〜(\d+)日目/g,'Day $1–$2'],[/(\d+)日目/g,'Day $1'],[/〜Day/g,'–Day'],
  [/（〜Day(\d+)）/g,'(until Day $1)']
 ];
 var POST_EN=[
@@ -322,26 +337,29 @@ var POST_EN=[
 ];
 function trKeys(){if(TR_KEYS)return TR_KEYS;var m=Object.assign({},UI_EN,TR_DATA);
   var keys=Object.keys(m).sort(function(a,b){return b.length-a.length});
-  TR_KEYS={map:m,sub:keys.filter(function(k){return k.length>=3})};return TR_KEYS}
+  TR_KEYS={map:m,sub:keys.filter(function(k){return k.length>=3&&!EXACT_ONLY[k]})};return TR_KEYS}
 function T(s){if(LANG!=='en'||!s)return s;var k=trKeys(),out=String(s),tr=out.trim();
   if(k.map[tr])return out.replace(tr,k.map[tr]);                       // 全体が一致（短い言葉はこれだけ）
   PRE_EN.forEach(function(r){out=out.replace(r[0],r[1])});
   k.sub.forEach(function(x){if(out.indexOf(x)>=0)out=out.split(x).join(k.map[x])});   // 3文字以上は文の中でも置き換え
   if(/[ぁ-んァ-ヶ一-龠（）〜・、。：]/.test(out))POST_EN.forEach(function(r){out=out.replace(r[0],r[1])});
   return out}
-var trDone=new WeakSet();
+var ORIG=new WeakMap();   // 元の日本語を覚えておき、訳が増えたら元から訳し直す
 function trNode(root){
-  if(LANG!=='en')return;
+  if(LANG!=='en'||!root)return;
   var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),n,list=[];
-  while((n=w.nextNode()))list.push(n);
-  list.forEach(function(n){if(trDone.has(n))return;var p=n.parentNode;if(!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName))return;
-    var v=n.nodeValue;if(/[ぁ-んァ-ヶ一-龠＃〜（）]/.test(v)){var t=T(v);if(t!==v)n.nodeValue=t}trDone.add(n)});
-  (root.querySelectorAll?root.querySelectorAll('[placeholder]'):[]).forEach(function(e){var v=e.getAttribute('placeholder');var t=T(v);if(t!==v)e.setAttribute('placeholder',t)});
+  if(root.nodeType===3)list.push(root);else while((n=w.nextNode()))list.push(n);
+  list.forEach(function(n){var p=n.parentNode;if(!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName))return;
+    var o=ORIG.has(n)?ORIG.get(n):n.nodeValue;
+    if(!/[ぁ-んァ-ヶ一-龠＃〜（）]/.test(o))return;
+    if(!ORIG.has(n))ORIG.set(n,o);
+    var t=T(o);if(t!==n.nodeValue)n.nodeValue=t});
+  (root.querySelectorAll?root.querySelectorAll('[placeholder]'):[]).forEach(function(e){var o=e.getAttribute('data-ph')||e.getAttribute('placeholder');e.setAttribute('data-ph',o);var t=T(o);if(t!==e.getAttribute('placeholder'))e.setAttribute('placeholder',t)});
 }
 if(LANG==='en'){
   document.documentElement.lang='en';
-  new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData'){trDone.delete(m.target);trNode(m.target.parentNode||document.body)}else m.addedNodes.forEach(function(x){if(x.nodeType===3){trDone.delete(x);trNode(x.parentNode)}else if(x.nodeType===1)trNode(x)})})})
-    .observe(document.body,{childList:true,subtree:true,characterData:true});
+  new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(x){if(x.nodeType===3||x.nodeType===1)trNode(x)})})})
+    .observe(document.body,{childList:true,subtree:true});
   trNode(document.body);
 }
 $('#langBtn').textContent=LANG==='en'?'日本語':'EN';
@@ -349,16 +367,13 @@ $('#langBtn').addEventListener('click',function(){store('s7db_lang',LANG==='en'?
 function loadTr(){
   if(LANG!=='en')return;
   fetch(API+'?type=tr&lang=en').then(function(r){return r.json()}).then(function(j){
-    if(!j||!j.ok||!j.map)return; TR_DATA=j.map; store('s7db_tr_en',j.map); TR_KEYS=null; trDone=new WeakSet(); trNode(document.body);
+    if(!j||!j.ok||!j.map)return; TR_DATA=j.map; store('s7db_tr_en',j.map); TR_KEYS=null; trNode(document.body);
   }).catch(function(){});
 }
 
 /* ===== テーマ ===== */
 var root=document.documentElement, th=store('s7db_theme'); if(th) root.setAttribute('data-theme',th);
-$('#themeBtn').addEventListener('click',function(){
-  var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
-  var nx=cur==='dark'?'light':'dark'; root.setAttribute('data-theme',nx); store('s7db_theme',nx);
-});
+try{localStorage.removeItem('s7db_theme')}catch(e){} root.removeAttribute('data-theme');   // 明るい／暗いは端末の設定に合わせる
 
 /* ===== 状態 ===== */
 var D=null;                                         // 公開データ
@@ -474,7 +489,7 @@ function renderCond(){
   }
   $('#wkRange').textContent=rg;
   $('#mWkRange').textContent=rg;
-  $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role):''].filter(Boolean).join('・');
+  $('#mSum').textContent=[st.server?'#'+st.server:'サーバー未設定',st.job||'職業未選択',st.plan||'',st.role?(st.role==='R4'?'R4':st.role==='一般'?'一般メンバー':st.role):''].filter(Boolean).join('・');
   $('#mEvBtn').textContent=(st.week==='pre'?'開幕前':'第'+w+'週')+'のイベントを見る';
 }
 
@@ -907,9 +922,14 @@ function load(){
 }
 // 自動テスト用の入口（画面の動きには影響しない）
 window.__s7={ask:function(q){CUR={id:'T',q:q,sent:true};ansType='';var n=log.querySelectorAll('.msg.bot').length;handle(q);var b=log.querySelectorAll('.msg.bot');CUR=null;return {type:ansType,text:b.length>n?b[b.length-1].textContent:''}},ready:function(){return !!D}};
+if(LANG==='en'){
+  botSay('<p>Ask anything about Season 7. Pick a week to see its events, and tap an event to see what to do.</p><p class="muted" style="font-size:13px">Examples: "What happens on 12/16?", "Day 3", "Wednesday of week 2", "Tonight", "Season overview", "City Clash", "Daily tasks"</p>');
+  if(!st.server||!st.job||!st.role) botSay('<p>First, set your server number, class and alliance rank '+(innerWidth<900?'with "Settings" above':'on the right')+'. Only information relevant to you will be shown.</p>');
+}else{
+  botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「12/16は何がある？」「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
+  if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
+}
 if(TEST){$('#testBadge').hidden=false;}
-botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「12/16は何がある？」「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
-if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
 renderCond(); renderKindFilter(); route(); load();
 })();
 </script>
