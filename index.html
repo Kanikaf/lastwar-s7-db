@@ -610,6 +610,8 @@ function answerEvent(name,opt){
   [].concat(per,dly,sched).forEach(function(r){parts.push(r['パーツID'])});
   var pt=pointsFor([nm]); parts=parts.concat(pt.parts);
   h+=partHtml(parts)+pt.html;
+  // 詳しいルールを聞かれたのに、知識メモ（ポイント）が無いとき
+  if(opt.detail&&!pt.html) h+='<p class="muted">'+esc(nm)+'の詳しいルール（マップ・施設・勝ち負けの決まり方など）は、まだ登録されていません。</p>';
   botSay(h); return true;
 }
 function answerDaily(id){
@@ -617,8 +619,9 @@ function answerDaily(id){
   var pt=pointsFor([r['名前']]);
   botSay('<p class="lead">'+esc(r['名前'])+'</p><p class="muted">毎日'+(r['時刻']?'（'+esc(r['時刻'])+'）':'')+'・第'+r['開始週']+'〜'+(r['終了週']||8)+'週</p>'+doLines([r])+partHtml([r['パーツID']].concat(pt.parts))+pt.html);
 }
-function answerKnowledge(list){
-  botSay(list.slice(0,4).map(function(k){return '<p class="lead">'+esc(k['項目'])+'</p><p>'+esc(k['要点（管理者の言葉・1〜2行）'])+(forWho(k)?'<span class="role">'+esc(forWho(k))+'</span>':'')+'</p>'}).join('')+partHtml(list.slice(0,4).map(function(k){return k['パーツID']})));
+function answerKnowledge(list,note,max){
+  max=max||4;
+  botSay((note?'<p>'+note+'</p>':'')+list.slice(0,max).map(function(k){return '<p class="lead">'+esc(k['項目'])+(isS3(k)?' <span class="muted">（S3実績）</span>':'')+'</p><p>'+esc(k['要点（管理者の言葉・1〜2行）'])+(forWho(k)?'<span class="role">'+esc(forWho(k))+'</span>':'')+'</p>'}).join('')+partHtml(list.slice(0,max).map(function(k){return k['パーツID']})));
 }
 function answerWeek(w){
   var S=season(), wd=weekData(w), singles=groupSingles(wd.single);
@@ -645,23 +648,25 @@ function answerDay(d,slot,withOngoing){
   if(slot){items=items.filter(function(x){var hh=new Date(x.e).getHours();return slot==='朝'?hh>=5&&hh<12:slot==='昼'?hh>=12&&hh<18:slot==='夜'?hh>=18:slot==='深夜'?hh<5:true})}
   var now=Date.now(), isToday=dd&&dd.getTime()===TODAY.getTime(), nextDone=false;
   var h='<p class="lead">'+(isToday?'今日・':'')+dayLabel(d,S)+(S.open?'・'+d+'日目':'')+(slot?'の'+slot:'')+'</p><p class="muted">第'+w+'週</p>';
-  h+='<table class="tt"><tbody><tr class="reset"><th>'+localTime(dd,'0:00')+'</th><td>1日のリセット</td></tr>';
-  items.forEach(function(x){
-    var past=isToday&&x.e<now, nx=isToday&&!past&&!nextDone; if(nx)nextDone=true;
-    h+='<tr class="'+(past?'past':'')+(nx?' next':'')+'"><th>'+localTime(dd,x.t)+'</th><td>'+x.html+(nx?' <span class="nexttag">次</span>':'')+'</td></tr>';
-  });
-  h+='</tbody></table>';
-  if(!items.length) h+='<p class="muted">時刻が決まっている予定は登録されていません。</p>';
   var untimed=single.filter(function(g){return !g.time});
   var udaily=daily.filter(function(r){return !r['時刻']});
+  var dailyHtml=udaily.length?'<h3>毎日やること</h3><ul>'+udaily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>':'';
+  if(items.length){   // 時刻つきの予定があるときだけタイムテーブルを出す
+    h+='<table class="tt"><tbody><tr class="reset"><th>'+localTime(dd,'0:00')+'</th><td>1日のリセット</td></tr>';
+    items.forEach(function(x){
+      var past=isToday&&x.e<now, nx=isToday&&!past&&!nextDone; if(nx)nextDone=true;
+      h+='<tr class="'+(past?'past':'')+(nx?' next':'')+'"><th>'+localTime(dd,x.t)+'</th><td>'+x.html+(nx?' <span class="nexttag">次</span>':'')+'</td></tr>';
+    });
+    h+='</tbody></table>';
+  } else { h+=dailyHtml; dailyHtml=''; }   // 時刻つきが0件の日は、毎日やることを先に見せる
   if(untimed.length) h+='<h3>この日の予定（時刻なし）</h3><ul>'+untimed.map(function(g){return '<li><button type="button" class="link" data-name="'+esc(g.name)+'" data-day="'+g.day+'" data-time="">'+kindLabel(g.kind)+esc(g.name)+(g.rows[0]['内容']?' '+esc(g.rows[0]['内容']):'')+'</button></li>'}).join('')+'</ul>';
   if(multi.length) h+='<h3>この日に始まる・終わるもの</h3><ul>'+multi.map(function(r){var st_=num(r['開始日目'])===d;return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+(st_?'開始（〜'+r['終了日目']+'日目）':'最終日')+'</span></li>'}).join('')+'</ul>';
   if(withOngoing){
     var ongoing=dedupe(all.filter(function(r){var a=num(r['開始日目']),e=num(r['終了日目']||r['開始日目']);return e!==a&&a!==d&&e!==d}).concat(rows('期間イベント').filter(function(r){return inWeek(r,w)})));
     if(ongoing.length) h+='<h3>この日も開催中</h3><ul>'+ongoing.map(function(r){var rng=r['開始日目']?('Day'+r['開始日目']+'〜'+r['終了日目']):('第'+r['開始週']+(r['終了週']&&r['終了週']!==r['開始週']?'〜'+r['終了週']:'')+'週');return '<li><button type="button" class="link" data-name="'+esc(r['イベント名'])+'">'+kindLabel(r['種類'])+esc(r['イベント名'])+(r['内容']?' '+esc(r['内容']):'')+'</button> <span class="muted">'+rng+'</span></li>'}).join('')+'</ul>';
   }
-  if(udaily.length) h+='<h3>毎日やること</h3><ul>'+udaily.map(function(r){return '<li><button type="button" class="link" data-m="'+esc(r['毎日ID'])+'">'+kindLabel(r['種類'])+esc(r['名前'])+'</button></li>'}).join('')+'</ul>';
-  h+='<p class="muted" style="font-size:12px">時刻はこの端末の時間で表示しています（1日の区切りはサーバー時間0時）。</p>';
+  h+=dailyHtml;
+  if(items.length) h+='<p class="muted" style="font-size:12px">時刻はこの端末の時間で表示しています（1日の区切りはサーバー時間0時）。</p>';
   if(!withOngoing) h+='<p><button type="button" class="link" data-week="'+w+'">第'+w+'週に開催中のイベントを見る</button></p>';
   botSay(h);
 }
@@ -806,11 +811,45 @@ function dispatchAI(r){
   return false;
 }
 /* 質問の判断（AIなしの言葉判断） */
+// 言い換え（最初から入っているもの）。スプシの「言い換え」シートがあれば後ろに足す
+var ALIAS_BASE=[['初日','1日目'],['開幕日','1日目'],['最終日','56日目'],['最終週','8週'],['デイリー','毎日'],
+  ['いつ始まる','いつから'],['いつはじまる','いつから'],['最初の週','1週目'],['はじめの週','1週目'],
+  ['かいまくまえ','開幕前'],['かいまく','開幕'],['報酬上限','上限'],['増やし方','入手'],['稼ぎ方','入手'],['集め方','入手']];
+function normQ(s){return String(s||'').replace(/[\s・、。,，「」『』（）()！!？?…:：\-]/g,'')}
+function isThanks(t){
+  if(/[?？]|何|なに|いつ|どう|どこ|教え|知りたい|やる|する/.test(t)) return false;
+  return /ありがと|サンキュー|thank|感謝|助かり|助かった|すごい|すご[ーっ]|おもしろ|面白|うれし|嬉し|最高/i.test(t)||/^(カニ|かに|蟹).{0,4}さん[!！。]*$/.test(t);
+}
+function eventHits(t){
+  var names=[];
+  [['予定表','イベント名'],['期間イベント','イベント名'],['毎日やること','名前']].forEach(function(p){rows(p[0]).forEach(function(r){var n=r[p[1]];if(n&&names.indexOf(n)<0)names.push(n)})});
+  var hit=names.filter(function(n){var b=n.replace(/S7$/,'');return t.indexOf(b)>=0||(t.length>=2&&b.indexOf(t)>=0)});
+  hit.sort(function(a,b){return b.length-a.length});
+  return hit;
+}
+// 言葉がデータのどこかに出てくるか（「〇〇はある？」の判断用。取消の行は公開データに無い）
+function knownWord(x){
+  var txt=function(name,keys){return (D&&D[name]||[]).some(function(r){return keys.some(function(k){return String(r[k]||'').indexOf(x)>=0})})};
+  return txt('予定表',['イベント名','内容','やること（1行）'])||txt('期間イベント',['イベント名','やること（1行）','期間メモ'])
+    ||txt('毎日やること',['名前','やること（1行）'])||txt('知識メモ',['項目','タグ','要点（管理者の言葉・1〜2行）','関連イベント']);
+}
 function handle(q){
+  // 質問の中のサーバー番号（692サーバー・#692・サーバー692）は、右の欄の番号より優先する
+  var qq=String(q).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)});
+  var sm=qq.match(/#\s*(\d{1,4})|(\d{1,4})\s*番?\s*(?:サーバー|サーバ|鯖)|(?:サーバー|サーバ|鯖)\s*#?\s*(\d{1,4})|server\s*#?\s*(\d{1,4})/i);
+  if(sm){var sv=sm[1]||sm[2]||sm[3]||sm[4],old=st.server;st.server=sv;try{handleQ(q,true)}finally{st.server=old}return}
+  handleQ(q,false);
+}
+function handleQ(q,svInQ){
   var t=(/[a-z]/i.test(q)?enToJa(q):q).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
-  // 言い換え（最初から入っているもの＋スプシの「言い換え」シート）
-  var alias=[['初日','1日目'],['開幕日','1日目'],['最終日','56日目'],['最終週','8週'],['デイリー','毎日']].concat((D['言い換え']||[]).map(function(r){return [r['言葉'],r['置き換え']]}));
+  var alias=ALIAS_BASE.concat((D['言い換え']||[]).map(function(r){return [r['言葉'],r['置き換え']]}));
   alias.forEach(function(a){if(a[0]&&a[1]&&t.indexOf(a[0])>=0)t=t.split(a[0]).join(a[1])});
+  // お礼・ほめ言葉・呼びかけ
+  if(isThanks(t)){ansType='あいさつ';botSay('<p>ありがとう！！めっちゃうれしいです！！！</p>');return}
+  var detail=/詳し|くわし|仕組み|システム|ルール|マップ|施設|勝ち|負け/.test(t);
+  // 「〜について詳しく知りたい」などの言い回しは、探す言葉から外す
+  var t0=t.replace(/^[・\-\*•]+/,'').replace(/(について|に関して|って)?(もっと)?(詳しく|くわしく)?(知りたい|教えて(ください|ほしい)?|説明して(ください)?)(です)?[。！!？?]*$/,'');
+  if(t0) t=t0;
   var S=season();
   var pw=t.match(/([12])週間?前/), pp=t.match(/プレ(?:シーズン)?(?:の)?第?([12])週/);
   if(pw){answerPre(+pw[1]);return}
@@ -824,16 +863,41 @@ function handle(q){
     var mo=+dm[1]-1,da=+dm[2],y=S.open.getUTCFullYear(),best=null;
     [y-1,y,y+1].forEach(function(yy){var x=Date.UTC(yy,mo,da),diff=Math.abs(x-S.open.getTime());if(best==null||diff<best.diff)best={x:x,diff:diff}});
     var dn2=Math.round((best.x-S.open.getTime())/86400000)+1, dt2=new Date(best.x);
-    if(dn2>=1&&dn2<=56){answerDay(dn2,slotOf(t),true);return}
+    if(dn2>=1&&dn2<=56){
+      if(/の週|週の/.test(t)){answerWeek(Math.ceil(dn2/7));return}   // 「12/31の週」はその日を含む週
+      answerDay(dn2,slotOf(t),true);return}
     if(dn2<1&&dn2>=-13){botSay('<p class="lead">'+md(dt2)+'（'+dow(dt2)+'）はプレシーズン中です</p><p>開幕（'+md(S.open)+'）まであと'+(1-dn2)+'日。開幕前にやることは、週ボタンの「開幕前」で確認できます。</p>');return}
     botSay('<p>'+md(dt2)+'はシーズン7の期間外です（このサーバーのS7は '+md(S.open)+'〜'+md(dayDate(56,S))+'）。</p>');return
+  }
+  // 長い文の質問：知識メモの要点とほぼ同じなら、そのメモと同じ画像（同じ出どころ）のメモだけを出す
+  var nq=normQ(t);
+  if(nq.length>=12){
+    var bg=function(s){var a={};for(var i=0;i<s.length-1;i++)a[s.substr(i,2)]=1;return Object.keys(a)};
+    var qb=bg(nq),bk=null,bs=0;
+    rows('知識メモ').forEach(function(k){var kb=bg(normQ(k['要点（管理者の言葉・1〜2行）']));if(!kb.length)return;
+      var m=0;qb.forEach(function(x){if(kb.indexOf(x)>=0)m++});var s=m/Math.max(qb.length,kb.length);if(s>bs){bs=s;bk=k}});
+    if(bk&&bs>=0.6){
+      var pids=split(bk['パーツID']);
+      var rel=pids.length?rows('知識メモ').filter(function(k){return k!==bk&&split(k['パーツID']).some(function(p){return pids.indexOf(p)>=0})}):[];
+      answerKnowledge([bk].concat(rel));return}
+  }
+  var ev=eventHits(t);
+  // 宣戦布告の時間：開幕日ではなく、そのイベントの宣戦のメモを出す
+  if(/宣戦/.test(t)){
+    var base=ev.length?ev[0].replace(/S7$/,''):'';
+    var sk=rows('知識メモ').filter(function(k){return /宣戦/.test(k['項目']+' '+k['タグ'])});
+    var spk=base?sk.filter(function(k){return (k['項目']+' '+k['タグ']+' '+k['関連イベント']).indexOf(base)>=0}):sk;
+    if(spk.length){answerKnowledge(preferS7(spk));return}
+    if(ev.length){answerEvent(ev[0]);return}
   }
   if(/流れ|全体|スケジュール一覧|シーズンの予定/.test(t)){answerOverview();return}
   if(mdN){var dn=+mdN[1];if(dn>=1&&dn<=56){answerDay(dn,slotOf(t));return}}
   if(/イベント|予定/.test(t)&&/日程|日ごと|日別|順|並べ|一覧|全部|すべて|カレンダー|Day/i.test(t)){answerAllDays(mw?+mw[1]:1,mw?+mw[1]:8);return}
-  if(/開幕|いつから|日程|予告/.test(t)&&!mw){answerSchedule();return}
+  // 開幕日：イベント名が入っているときは、そのイベントの答えを優先する
+  if(/開幕|いつから|日程|予告/.test(t)&&!mw&&!ev.length){answerSchedule();return}
+  if((svInQ||/シーズン|S7/i.test(t))&&/何日から|いつ|始ま|はじま|スタート/.test(t)&&!mw&&!ev.length){answerSchedule();return}
   var slot=slotOf(t);
-  var md_=t.match(/([日月火水木金土])曜/), today=/今日/.test(t), tomorrow=/明日/.test(t);
+  var md_=t.match(/([日月火水木金土])曜/), today=/今日|今から|いまから|今やる|今なに|今何/.test(t), tomorrow=/明日/.test(t);
   if(md_||today||tomorrow){
     if(!S.open){botSay('<p>このサーバーは開幕日が決まっていないため、曜日では探せません。「3日目」や「2週目」のように聞いてみてください。</p>');return}
     var wk=mw?+mw[1]:curWeek(), d=null;
@@ -850,20 +914,60 @@ function handle(q){
     if(d&&d>=1&&d<=56){answerDay(d,slot);return}
   }
   if(mw){answerWeek(+mw[1]);return}
-  if(/今週/.test(t)){answerWeek(curWeek());return}
+  // 今週・来週：開幕前なら、開幕日から逆算して開幕前の準備を出す
+  if(/今週|来週/.test(t)){
+    var nx=/来週/.test(t)?1:0;
+    if(S.phase==='pre'){var u2=S.until-nx*7;if(u2<1){answerWeek(1);return}
+      answerPre(u2<=7?1:u2<=14?2:0,(nx?'来週は':'')+'開幕まであと'+u2+'日'+(nx?'の時期です。':'です。'));return}
+    var cw=curWeek(); if(typeof cw!=='number')cw=1;
+    answerWeek(Math.min(8,cw+nx));return
+  }
   if(/毎日|デイリー/.test(t)){var w=curWeek(),list=rows('毎日やること').filter(function(r){return inWeek(r,w)});
     if(list.length){ansType='毎日';botSay('<p class="lead">第'+w+'週の毎日やること</p>'+doLines(list)+partHtml(list.map(function(r){return r['パーツID']})));return}}
+  // 「〇〇はある？」：名前がデータに無ければ、関係の薄いメモを出さずに「登録されていません」と答える
+  if(/(ある|あります)(の|か|かな|ですか|んですか)?[?？!！。]*$/.test(t)){
+    var subj=t.replace(/(は|って|も|が)?(ある|あります)(の|か|かな|ですか|んですか)?[?？!！。]*$/,'').replace(/^(S7|シーズン7|今シーズン|シーズン)(に|で)?(は)?/i,'');
+    if(subj.length>=2&&!/何|なに|どんな|どれ|いつ|どこ|誰|だれ/.test(subj)){
+      var partsQ=subj.split(/の|と/).filter(function(x){return x.length>=2});
+      if(partsQ.length&&!partsQ.every(knownWord)){ansType='未登録';botSay('<p>S7の情報には「'+esc(subj)+'」は登録されていません。</p>');return}
+    }
+  }
   // イベント名
-  var names=[];
-  [['予定表','イベント名'],['期間イベント','イベント名'],['毎日やること','名前']].forEach(function(p){rows(p[0]).forEach(function(r){var n=r[p[1]];if(n&&names.indexOf(n)<0)names.push(n)})});
-  var hit=names.filter(function(n){var b=n.replace(/S7$/,'');return t.indexOf(b)>=0||(t.length>=2&&b.indexOf(t)>=0)});
-  if(hit.length){hit.sort(function(a,b){return b.length-a.length});answerEvent(hit[0]);return}
+  if(ev.length){answerEvent(ev[0],{detail:detail});return}
   // 知識メモ
   var ks=rows('知識メモ').filter(function(k){
     var keys=[k['項目']].concat(split(k['タグ'])).filter(function(x){return x&&x.length>=2});
     return keys.some(function(x){return t.indexOf(x)>=0||(t.length>=2&&x.indexOf(t)>=0)});
   });
-  if(ks.length){answerKnowledge(preferS7(ks));return}
+  // 入手・上限を聞かれたとき：その話題のメモ（毎日やることも含む）から、入手方法・上限が書かれたものを先に出す（S7が先、S3実績は後ろ）
+  var want=/入手/.test(t)?/入手|集め|稼|得る|もらえ|生産|手に入/:/上限/.test(t)?/上限|回/:null;
+  if(want&&ks.length){
+    var terms=[];
+    ks.forEach(function(k){[k['項目']].concat(split(k['タグ'])).forEach(function(x){if(x&&x.length>=2&&t.indexOf(x)>=0&&terms.indexOf(x)<0)terms.push(x)})});
+    if(/シーズン資源/.test(t)) terms=terms.concat(['聖水','ミスリル']);
+    var P='要点（管理者の言葉・1〜2行）';
+    var pool=rows('知識メモ').map(function(k){return {r:k,txt:k['項目']+' '+k['タグ']+' '+k[P],body:k[P]}})
+      .concat(rows('毎日やること').map(function(m){var r={'項目':m['名前']+'（毎日）','タグ':'','パーツID':m['パーツID'],'対象職業':m['対象職業'],'対象作戦計画':m['対象作戦計画'],'対象役職':m['対象役職']};r[P]=m['やること（1行）'];return {r:r,txt:m['名前']+' '+m['やること（1行）'],body:m['やること（1行）']}}));
+    var cand=pool.filter(function(p){return terms.some(function(x){return p.txt.indexOf(x)>=0})});
+    var good=cand.filter(function(p){return want.test(p.body)}), rest=cand.filter(function(p){return good.indexOf(p)<0});
+    var s7f=function(a){return a.filter(function(p){return !isS3(p.r)}).concat(a.filter(function(p){return isS3(p.r)}))};
+    var picked=s7f(good).concat(s7f(rest)).map(function(p){return p.r});
+    var wn='';
+    if(/上限/.test(t)&&!picked.slice(0,6).some(function(r){return /1日に?\d+回|\d+回まで|上限\d+/.test(r[P])})) wn='1日に獲得できる回数の上限は、まだ登録されていません。';
+    if(picked.length){answerKnowledge(picked,wn,6);return}
+  }
+  if(ks.length){
+    var an='';
+    // 覚醒：対象ではない英雄の名前が入っていたら、覚醒できる英雄と「情報なし」を添える
+    if(/覚醒/.test(t)){
+      var aw=rows('知識メモ').filter(function(k){return /覚醒/.test(k['項目'])&&/対象は/.test(k['要点（管理者の言葉・1〜2行）'])})[0];
+      if(aw){
+        var tm=aw['要点（管理者の言葉・1〜2行）'].match(/対象は(.+?)。/), targets=tm?tm[1].split(/[・、]/).map(function(x){return x.replace(/（.*?）|\(.*?\)/g,'')}).filter(Boolean):[];
+        var kw=(t.match(/[ァ-ヶー]{2,}/g)||[]).filter(function(x){return targets.indexOf(x)<0});
+        if(targets.length&&kw.length) an='S7で覚醒できるのは'+esc(targets.join('・'))+'の'+targets.length+'人です。'+esc(kw[0])+'の覚醒の情報は登録されていません。';
+      }
+    }
+    answerKnowledge(preferS7(ks),an);return}
   // 図鑑・画像パーツ
   var ps=(D['画像パーツ']||[]).filter(function(p){var n=p['何を示すか']||'';return t.length>=2&&(n.indexOf(t)>=0||t.indexOf(n.replace(/（.*?）/g,''))>=0)});
   if(ps.length){botSay('<p class="lead">関連する画像</p>'+partHtml(ps.slice(0,4).map(function(p){return p['パーツID']})));return}
