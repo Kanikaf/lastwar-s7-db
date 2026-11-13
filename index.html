@@ -661,7 +661,7 @@ function handle(q){
   if(mw){answerWeek(+mw[1]);return}
   if(/今週/.test(t)){answerWeek(curWeek());return}
   if(/毎日|デイリー/.test(t)){var w=curWeek(),list=rows('毎日やること').filter(function(r){return inWeek(r,w)});
-    if(list.length){botSay('<p class="lead">第'+w+'週の毎日やること</p>'+doLines(list)+partHtml(list.map(function(r){return r['パーツID']})));return}}
+    if(list.length){ansType='毎日';botSay('<p class="lead">第'+w+'週の毎日やること</p>'+doLines(list)+partHtml(list.map(function(r){return r['パーツID']})));return}}
   // イベント名
   var names=[];
   [['予定表','イベント名'],['期間イベント','イベント名'],['毎日やること','名前']].forEach(function(p){rows(p[0]).forEach(function(r){var n=r[p[1]];if(n&&names.indexOf(n)<0)names.push(n)})});
@@ -785,6 +785,8 @@ function load(){
     if(!D){$('#evList').innerHTML='<div class="err">データを読み込めませんでした。時間をおいて開き直してください。</div>';$('#updated').textContent='読み込み失敗';}
   });
 }
+// 自動テスト用の入口（画面の動きには影響しない）
+window.__s7={ask:function(q){CUR={id:'T',q:q,sent:true};ansType='';var n=log.querySelectorAll('.msg.bot').length;handle(q);var b=log.querySelectorAll('.msg.bot');CUR=null;return {type:ansType,text:b.length>n?b[b.length-1].textContent:''}},ready:function(){return !!D}};
 if(TEST){$('#testBadge').hidden=false;}
 botSay('<p>シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。</p><p class="muted" style="font-size:13px">例：「12/16は何がある？」「3日目は何がある？」「2週目の水曜は？」「今日の夜は？」「シーズンの流れ」「都市争奪戦」「毎日やること」</p>');
 if(!st.server||!st.job||!st.role) botSay('<p>はじめに、'+(innerWidth<900?'上の「条件を変える」':'右側')+'でサーバー番号・職業・役職を選んでください。あなたに関係する情報だけを表示します。</p>');
