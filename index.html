@@ -184,6 +184,7 @@ dialog img{display:block;max-width:100%;margin:0 auto}
       <a href="#zukan" data-view="zukan">図鑑</a>
     </nav>
     <div class="meta"><span id="updated">読み込み中…</span><span>#720 カニカフの趣味によるまとめです</span></div>
+    <button class="theme-btn" id="langBtn" type="button">EN</button>
     <button class="theme-btn" id="themeBtn" type="button">表示切替</button>
   </div>
 </header>
@@ -212,10 +213,10 @@ dialog img{display:block;max-width:100%;margin:0 auto}
         <h2>あなたの条件</h2>
         <div class="cgrid">
           <label class="field"><span>サーバー番号</span><input id="cServer" type="number" inputmode="numeric" min="1" max="9999" placeholder="例：720"></label>
-          <label class="field"><span>職業</span><select id="cJob"><option value="">選んでください</option><option>エンジニア</option><option>戦争指導者</option></select></label>
+          <label class="field"><span>職業</span><select id="cJob"><option value="">選んでください</option><option value="エンジニア">エンジニア</option><option value="戦争指導者">戦争指導者</option></select></label>
           
           <label class="field"><span>役職</span><select id="cRole">
-            <option value="">選んでください</option><option>盟主</option><option>戦神</option><option>女神</option><option>理事</option><option>執事</option><option value="R4">R4（役職なし）</option><option value="一般">一般メンバー</option></select></label>
+            <option value="">選んでください</option><option value="盟主">盟主</option><option value="戦神">戦神</option><option value="女神">女神</option><option value="理事">理事</option><option value="執事">執事</option><option value="R4">R4（役職なし）</option><option value="一般">一般メンバー</option></select></label>
           <label class="field" style="grid-column:1/-1"><span>作戦計画システム</span><select id="cPlan"></select></label>
         </div>
         <div class="wklabel">シーズンの週</div>
@@ -261,9 +262,96 @@ function split(v){return String(v||'').split(/[,、，\s]+/).filter(Boolean)}
 
 /* ===== テスト版（?test=1 で有効、?test=0 で解除。スマホに記憶） ===== */
 var TEST=(function(){var m=location.search.match(/[?&]test=([01])/);if(m){store('s7db_test',m[1]==='1');}return !!store('s7db_test')})();
-var CUR=null, ansType='';
+var CUR=null, ansType='', NEED_AI=false, VIA_AI=false;
 function newLogId(){return 'L'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
 function sendLog(params){if(!TEST)return;var qs=Object.keys(params).map(function(k){return k+'='+encodeURIComponent(params[k])}).join('&');fetch(API+'?type=log&'+qs).catch(function(){})}
+
+/* ===== 言語（日本語／English）：画面の文字だけを切り替える ===== */
+var LANG=store('s7db_lang')||'ja';
+var UI_EN={
+ 'データベース':'Database','調べる':'Search','図鑑':'Gallery','表示切替':'Theme','情報更新':'Updated','読み込み中…':'Loading…','読み込み失敗':'Load failed',
+ '#720 カニカフの趣味によるまとめです':'Unofficial hobby guide by Kanikafu (#720)','テスト版':'TEST',
+ 'あなたの条件':'Your settings','サーバー番号':'Server No.','職業':'Class','エンジニア':'Engineer','戦争指導者':'War Leader','選んでください':'Select',
+ '役職':'Alliance rank','盟主':'R5','戦神':'Warlord','女神':'Muse','理事':'Recruiter','執事':'Butler','R4（役職なし）':'R4 (no title)','一般メンバー':'Member (R1–R3)',
+ '作戦計画システム':'Battle plan','まだ選んでいない':'Not chosen yet','シーズンの週':'Season week','開幕前':'Pre-season','いま':'now',
+ 'イベントを押すと説明が出ます':'Tap an event for details','すべて':'All','シーズン':'Season','基地':'Base','英雄':'Hero','その他':'Other','イベ':'EV','他':'ETC',
+ 'シーズンイベント':'Season event','基地育成':'Base growth','英雄育成':'Hero growth','その他イベント':'Other event',
+ '毎日やること':'Daily tasks','今週開催中':'Running this week','曜日・時刻のイベント':'Events by day & time','今週から':'new this week','今日':'today',
+ '閉じる':'Close','条件を変える':'Settings','質問を入力':'Ask a question','送る':'Send','考えています…':'Thinking…',
+ 'この日のイベント':'Events on this day','この日に始まる・終わるもの':'Starting / ending this day','この日も開催中':'Also running','開催中':'Running','曜日・時刻':'By day & time',
+ 'この日の予定（時刻なし）':'Events (no time)','1日のリセット':'Daily reset','ポイント':'Tips','次':'Next','関連する画像':'Related images',
+ '開始':'starts','最終日':'last day','毎日':'daily','開幕までに':'Before launch','開幕2週間前から':'From 2 weeks before launch','開幕1週間前から':'From 1 week before launch',
+ '開幕前にやること':'What to do before launch','開幕1週間前にやること':'What to do 1 week before launch','開幕2週間前にやること':'What to do 2 weeks before launch',
+ '開幕1週間前':'1 week before launch','開幕2週間前':'2 weeks before launch','開幕までに（時期の指定なし）':'Before launch (any time)','日程':'Schedule',
+ 'シーズン7の流れ':'Season 7 overview','シーズン中のイベント（日ごと）':'Season events by day','予告':'Preview','開幕':'Launch','未定':'TBD',
+ 'イベント名を押すと、やることが出ます。':'Tap an event name to see what to do.',
+ 'イベント名を押すと、やることが出ます。時刻はこの端末の時間です。':'Tap an event name to see what to do. Times are in your local time.',
+ '時刻はこの端末の時間で表示しています（1日の区切りはサーバー時間0時）。':'Times are in your local time (the day resets at 00:00 server time).',
+ '時刻が決まっている予定は登録されていません。':'No timed events registered.','この日だけの予定は登録されていません。':'No events registered for this day only.',
+ 'この週の予定はまだ登録されていません。':'Nothing registered for this week yet.','開幕前の情報はまだ登録されていません。':'No pre-season info registered yet.',
+ 'この質問に答えられる情報はまだ登録されていません。管理者に知らせました。':'No information for this question yet. The admin has been notified.',
+ '詳しい情報はまだ登録されていません。':'No details registered yet.','データを読み込み中です。少し待ってからもう一度送ってください。':'Loading data. Please try again in a moment.',
+ 'シーズン7について質問してください。週を選ぶと、その週のイベントを見られます。イベントを押すと、何をすればいいかを答えます。':'Ask anything about Season 7. Pick a week to see its events, and tap an event to see what to do.',
+ '図鑑はまだ登録がありません。':'No gallery items yet.','画像を読み込み中…':'Loading image…','画像を読み込めませんでした':'Could not load image',
+ 'ほしい情報だった':'Helpful','違った・足りない':'Not what I needed','テスト：':'Test:','ありがとうございます（記録しました）':'Thanks (recorded)','何が知りたかったですか？（任意）':'What did you want to know? (optional)',
+ 'サーバー番号を入れると、いまの週がわかります':'Enter your server number to see the current week','開幕日未定です':'launch date TBD','オフシーズン中です（S7本編は終了）':'is in the off-season (S7 has ended)',
+ '週ボタンを押すと、その週の詳しい予定が出ます。':'Tap a week button for details.','日程はまだ登録されていません。':'Schedule not registered yet.'
+};
+var DOW_EN={'月':'Mon','火':'Tue','水':'Wed','木':'Thu','金':'Fri','土':'Sat','日':'Sun'};
+var RULES_EN=[
+ [/プレシーズン第(\d)週/g,'Pre-season week $1'],[/プレシーズン/g,'Pre-season'],[/第(\d+)〜(\d+)週/g,'Weeks $1–$2'],[/第(\d+)週/g,'Week $1'],[/(\d+)日目/g,'Day $1'],
+ [/([月火水木金土日])曜日?/g,function(m,d){return DOW_EN[d]}],[/（([月火水木金土日])/g,function(m,d){return '('+DOW_EN[d]}],
+ [/開幕まであと(\d+)日/g,'$1 days until launch'],[/(\d+\/\d+) 開幕/g,'launch $1'],[/はいま/g,': now in'],[/#(\d+) は/g,'#$1: '],[/#(\d+) の/g,'#$1 '],
+ [/翌/g,'next day '],[/〜/g,'–'],[/（/g,' ('],[/）/g,')'],[/、/g,', '],[/。/g,'. '],[/・/g,' · '],[/：/g,': ']
+];
+var TR_DATA=store('s7db_tr_en')||{};
+var TR_KEYS=null;
+// 文の形が決まっているもの（辞書より先に置き換える）
+var PRE_EN=[
+ [/第(\d+)週に開催中のイベントを見る/g,'See events running in week $1'],[/第(\d+)週の毎日やること/g,'Week $1 daily tasks'],[/第(\d+)週のイベント/g,'Week $1 events'],
+ [/開幕まであと(\d+)日です。/g,'$1 days until launch. '],[/開幕まであと(\d+)日/g,'$1 days until launch'],[/今から進められる準備です。/g,'Things you can prepare now.'],
+ [/開幕は(\d+\/\d+)/g,'Launch is $1'],[/(\d+\/\d+) 開幕/g,'launch $1'],[/プレシーズン第(\d)週/g,'Pre-season week $1'],
+ [/は開幕日未定です/g,': launch date TBD'],[/の日程はまだ登録されていません/g,': schedule not registered'],[/の日程/g,' schedule'],
+ [/第(\d+)〜(\d+)週/g,'Weeks $1–$2'],[/第(\d+)週/g,'Week $1'],[/Day(\d+)〜(\d+)/g,'Day $1–$2'],[/(\d+)日目/g,'Day $1'],[/〜Day/g,'–Day'],
+ [/（〜Day(\d+)）/g,'(until Day $1)']
+];
+var POST_EN=[
+ [/([月火水木金土日])曜日?/g,function(m,d){return DOW_EN[d]}],[/（([月火水木金土日])）/g,function(m,d){return '('+DOW_EN[d]+')'}],[/（([月火水木金土日])\s/g,function(m,d){return '('+DOW_EN[d]+' '}],
+ [/はいま/g,': now in'],[/#(\d+) は/g,'#$1: '],[/#(\d+) の/g,'#$1 '],[/翌/g,'next day '],
+ [/〜/g,'–'],[/（/g,' ('],[/）/g,')'],[/、/g,', '],[/。/g,'. '],[/・/g,' · '],[/：/g,': ']
+];
+function trKeys(){if(TR_KEYS)return TR_KEYS;var m=Object.assign({},UI_EN,TR_DATA);
+  var keys=Object.keys(m).sort(function(a,b){return b.length-a.length});
+  TR_KEYS={map:m,sub:keys.filter(function(k){return k.length>=3})};return TR_KEYS}
+function T(s){if(LANG!=='en'||!s)return s;var k=trKeys(),out=String(s),tr=out.trim();
+  if(k.map[tr])return out.replace(tr,k.map[tr]);                       // 全体が一致（短い言葉はこれだけ）
+  PRE_EN.forEach(function(r){out=out.replace(r[0],r[1])});
+  k.sub.forEach(function(x){if(out.indexOf(x)>=0)out=out.split(x).join(k.map[x])});   // 3文字以上は文の中でも置き換え
+  if(/[ぁ-んァ-ヶ一-龠（）〜・、。：]/.test(out))POST_EN.forEach(function(r){out=out.replace(r[0],r[1])});
+  return out}
+var trDone=new WeakSet();
+function trNode(root){
+  if(LANG!=='en')return;
+  var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),n,list=[];
+  while((n=w.nextNode()))list.push(n);
+  list.forEach(function(n){if(trDone.has(n))return;var p=n.parentNode;if(!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName))return;
+    var v=n.nodeValue;if(/[ぁ-んァ-ヶ一-龠＃〜（）]/.test(v)){var t=T(v);if(t!==v)n.nodeValue=t}trDone.add(n)});
+  (root.querySelectorAll?root.querySelectorAll('[placeholder]'):[]).forEach(function(e){var v=e.getAttribute('placeholder');var t=T(v);if(t!==v)e.setAttribute('placeholder',t)});
+}
+if(LANG==='en'){
+  document.documentElement.lang='en';
+  new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='characterData'){trDone.delete(m.target);trNode(m.target.parentNode||document.body)}else m.addedNodes.forEach(function(x){if(x.nodeType===3){trDone.delete(x);trNode(x.parentNode)}else if(x.nodeType===1)trNode(x)})})})
+    .observe(document.body,{childList:true,subtree:true,characterData:true});
+  trNode(document.body);
+}
+$('#langBtn').textContent=LANG==='en'?'日本語':'EN';
+$('#langBtn').addEventListener('click',function(){store('s7db_lang',LANG==='en'?'ja':'en');location.reload()});
+function loadTr(){
+  if(LANG!=='en')return;
+  fetch(API+'?type=tr&lang=en').then(function(r){return r.json()}).then(function(j){
+    if(!j||!j.ok||!j.map)return; TR_DATA=j.map; store('s7db_tr_en',j.map); TR_KEYS=null; trDone=new WeakSet(); trNode(document.body);
+  }).catch(function(){});
+}
 
 /* ===== テーマ ===== */
 var root=document.documentElement, th=store('s7db_theme'); if(th) root.setAttribute('data-theme',th);
@@ -459,7 +547,7 @@ function botSay(html){
   if(TEST&&CUR&&!CUR.sent){
     CUR.sent=true;
     var tmp=document.createElement('div');tmp.innerHTML=html;
-    sendLog({id:CUR.id,q:CUR.q,kind:ansType||'その他',sum:tmp.textContent.replace(/\s+/g,' ').slice(0,110),server:st.server||'',week:st.week==='pre'?'開幕前':curWeek()});
+    sendLog({id:CUR.id,q:CUR.q,kind:(VIA_AI?'AI/':'')+(ansType||'その他'),sum:tmp.textContent.replace(/\s+/g,' ').slice(0,110),server:st.server||'',week:st.week==='pre'?'開幕前':curWeek()});
     fb='<div class="tfb" data-log="'+CUR.id+'"><span class="muted">テスト：</span><button type="button" class="btn ghost small" data-eval="○">ほしい情報だった</button><button type="button" class="btn ghost small" data-eval="×">違った・足りない</button></div>';
   }
   var d=document.createElement('div');d.className='msg bot';d.innerHTML='<div class="who">S7 データベース</div><div class="bubble">'+html+fb+'</div>';
@@ -614,6 +702,36 @@ function notFound(q){
 }
 
 function slotOf(t){return /深夜/.test(t)?'深夜':/朝/.test(t)?'朝':/昼/.test(t)?'昼':/夜/.test(t)?'夜':''}
+/* B1：パターンで答えられない質問は、AI（GAS経由のGemini）に「答えの種類と見せるデータ」だけ選ばせる */
+function askAI(q,cur){
+  var S=season();
+  var ctx={phase:S.phase,today_day:S.day||null,days_until_open:S.until||null,open_date:S.open?S.open.toISOString().slice(0,10):null,selected_week:st.week==='pre'?'開幕前':curWeek()};
+  var ty=document.createElement('div');ty.className='typing';ty.textContent=T('考えています…');log.appendChild(ty);log.scrollTop=log.scrollHeight;
+  var done=function(fn){ty.remove();CUR=cur;VIA_AI=true;try{fn()}finally{CUR=null;VIA_AI=false}};
+  fetch(API+'?type=ask&q='+encodeURIComponent(q)+'&ctx='+encodeURIComponent(JSON.stringify(ctx))).then(function(r){return r.json()}).then(function(j){
+    done(function(){
+      if(!j||!j.ok||!j.r){notFound(q);return}
+      var r=j.r, ok=dispatchAI(r);
+      if(!ok) notFound(q);
+    });
+  }).catch(function(){done(function(){notFound(q)})});
+}
+function dispatchAI(r){
+  var byId=function(sheet,key){return (r.ids||[]).map(function(id){return rows(sheet).filter(function(x){return x[key]===id})[0]}).filter(Boolean)};
+  switch(r.intent){
+    case 'day': if(r.day>=1&&r.day<=56){answerDay(r.day,r.slot||'',false);return true} return false;
+    case 'week': if(r.week>=1&&r.week<=8){answerWeek(r.week);return true} return false;
+    case 'event': if(r.event&&answerEvent(r.event)) return true; var k0=byId('知識メモ','知識ID'); if(k0.length){answerKnowledge(preferS7(k0));return true} return false;
+    case 'knowledge': var k=byId('知識メモ','知識ID'); if(k.length){answerKnowledge(preferS7(k));return true} return false;
+    case 'daily': var m=byId('毎日やること','毎日ID'); if(m.length){answerDaily(m[0]['毎日ID']);return true}
+      var w=curWeek(),list=rows('毎日やること').filter(function(x){return inWeek(x,w)}); if(list.length){ansType='毎日';botSay('<p class="lead">第'+w+'週の毎日やること</p>'+doLines(list));return true} return false;
+    case 'pre': answerPre(r.pre===1||r.pre===2?r.pre:0); return true;
+    case 'overview': answerOverview(); return true;
+    case 'schedule': answerSchedule(); return true;
+    case 'alldays': answerAllDays(r.week||1,r.week||8); return true;
+  }
+  return false;
+}
 /* 質問の判断（AIなしの言葉判断） */
 function handle(q){
   var t=q.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248)}).replace(/\s+/g,'');
@@ -676,7 +794,7 @@ function handle(q){
   // 図鑑・画像パーツ
   var ps=(D['画像パーツ']||[]).filter(function(p){var n=p['何を示すか']||'';return t.length>=2&&(n.indexOf(t)>=0||t.indexOf(n.replace(/（.*?）/g,''))>=0)});
   if(ps.length){botSay('<p class="lead">関連する画像</p>'+partHtml(ps.slice(0,4).map(function(p){return p['パーツID']})));return}
-  notFound(q);
+  NEED_AI=true;   // 言葉のパターンでは答えられなかった → AIに振り分けを頼む
 }
 
 [['answerWeek','週'],['answerDay','日'],['answerEvent','イベント'],['answerKnowledge','知識'],['answerOverview','流れ'],['answerSchedule','開幕日'],['answerAllDays','日ごと一覧'],['answerDaily','毎日'],['answerPre','開幕前'],['notFound','見つからない']].forEach(function(x){
@@ -687,8 +805,9 @@ $('#ask').addEventListener('submit',function(e){
   e.preventDefault(); var q=$('#q').value.trim(); if(!q) return; $('#q').value='';
   userSay(q);
   if(!D){botSay('<p>データを読み込み中です。少し待ってからもう一度送ってください。</p>');return}
-  CUR={id:newLogId(),q:q}; ansType='';
+  CUR={id:newLogId(),q:q}; ansType=''; NEED_AI=false; VIA_AI=false;
   handle(q);
+  if(NEED_AI){var cur=CUR;CUR=null;askAI(q,cur);return}
   if(CUR&&!CUR.sent&&TEST){botSay('<p class="muted">（答えを作れませんでした）</p>')}
   CUR=null;
 });
@@ -773,6 +892,7 @@ window.addEventListener('hashchange',route);
 
 /* ===== 読み込み ===== */
 function applyData(d){
+  if(LANG==='en'&&!applyData._tr){applyData._tr=1;loadTr();}
   D=d; $('#updated').textContent='情報更新 '+(d.updated||'');
   fillPlans(); renderCond(); renderKindFilter(); renderEvents(); renderZukan();
 }
